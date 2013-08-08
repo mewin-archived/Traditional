@@ -1,3 +1,5 @@
+declare Text[] PrecachedSounds;
+
 Void InitForPlayer(CSmPlayer Player)
 {
     declare CUILayer LayerSound for Player;
@@ -23,6 +25,29 @@ Void PlaySoundAll(Text Name)
     }
 }
 
+Void PreCacheSoundForPlayer(CSmPlayer Player, Text Name)
+{
+	if (!Player.IsFakePlayer)
+    {
+        declare CUILayer LayerSound for Player;
+        
+        LayerSound.ManialinkPage = """<audio looping="0" play="0" hidden="1" data="file://Media/Sounds/{{{Name}}}.ogg" />{{{Now}}}""";
+    }
+}
+
+Void PreCacheSound(Text Name)
+{
+	PrecachedSounds.add(Name);
+}
+
+Void PreCacheSoundsForPlayer(CSmPlayer Player)
+{
+	foreach (Sound in PrecachedSounds)
+	{
+		PreCacheSoundForPlayer(Player, Sound);
+	}
+}
+
 Void AddUILayer(CSmPlayer Player)
 {
 	declare CUILayer LayerSound for Player = Null;
@@ -30,6 +55,7 @@ Void AddUILayer(CSmPlayer Player)
 	if (LayerSound == Null)
 	{
 		LayerSound <=> UIManager.UILayerCreate();
+		PreCacheSoundsForPlayer(Player);
 	}
 	
 	UIManager.GetUI(Player).UILayers.add(LayerSound);
