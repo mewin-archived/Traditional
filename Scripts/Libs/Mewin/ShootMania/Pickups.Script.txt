@@ -595,6 +595,17 @@ Void UpdateML(CSmPlayer Player)
 		UILayers[Player.Id] <=> UIManager.UILayerCreate();
 		UIManager.GetUI(Player).UILayers.add(UILayers[Player.Id]);
 	}
+	else if (!UIManager.GetUI(Player).UILayers.exists(UILayers[Player.Id]))
+	{
+		UIManager.GetUI(Player).UILayers.add(UILayers[Player.Id]);
+	}
 	
-	UILayers[Player.Id].ManialinkPage = GetML(Player);
+	if (Player.SpawnStatus != CSmPlayer::ESpawnStatus::Spawned)
+	{
+		UILayers[Player.Id].ManialinkPage = "";
+	}
+	else
+	{
+		UILayers[Player.Id].ManialinkPage = GetML(Player);
+	}
 }

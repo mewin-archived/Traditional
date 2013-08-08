@@ -421,6 +421,7 @@ Void UpdateBot(CSmPlayer Player)
 		if (Player != _Player
 				&& Player.SpawnStatus == CSmPlayer::ESpawnStatus::Spawned
 				&& Player.CurrentClan != _Player.CurrentClan
+				&& MathLib::Abs(Player.Position.Y - _Player.Position.Y) < 5.
 				&& MathLib::Distance(Player.Position, _Player.Position) <= Min(Player.Driver.AggroRadius, MathLib::Distance(Player.Position, Target)))
 		{
 			TargetMode = 1;
@@ -453,7 +454,7 @@ Void UpdateBot(CSmPlayer Player)
 	{
 		foreach(Item in Objects)
 		{
-			if (Item.Status != CSmObject::EStatus::InWorld) continue;
+			if (Item.Status != CSmObject::EStatus::InWorld || MathLib::Abs(Item.Position.Y - Player.Position.Y) > 10.) continue;
 			declare PickupType for Item = -1;
 			declare Dist = MathLib::Distance(Item.Position, Player.Position);
 			if (PickupType > 0
@@ -1091,22 +1092,6 @@ main() {
 	DbgEnableNavMesh = True;
 	UseClans = True;
 	
-	//Init UI
-	log("""Initializing {{{ScoresTable::GetScriptName()}}} V.{{{ScoresTable::GetScriptVersion()}}}""");
-	ScoresTable::Load();
-	ScoresTable::SetTableWidth(236.);
-	ScoresTable::SetDisplayTeamScore(True);
-	ScoresTable::SetColumnWidth("Custom1", 5.);
-	ScoresTable::SetColumnName("Custom1", "Hits");
-	ScoresTable::SetDefaultCustom1("0");
-	ScoresTable::SetColumnWidth("Custom2", 5.);
-	ScoresTable::SetColumnName("Custom2", "Atk");
-	ScoresTable::SetDefaultCustom2("0");
-	ScoresTable::SetColumnWidth("Custom3", 5.);
-	ScoresTable::SetColumnName("Custom3", "Def");
-	ScoresTable::SetDefaultCustom3("0");
-	ScoresTable::SetTableBackgroundImage("file://Media/Manialinks/ShootMania/Common/scoresBg.dds", <0., 62.>, <260., 200.>);
-	ScoresTable::Build();
 	//Tabs::Load();
 	
 	declare LayerRoundInfo <=> UIManager.UILayerCreate();
@@ -1161,12 +1146,29 @@ main() {
 				
 				
 		ScoresTable::StartMatch();
+		//Init UI
+		log("""Initializing {{{ScoresTable::GetScriptName()}}} V.{{{ScoresTable::GetScriptVersion()}}}""");
+		ScoresTable::Load();
+		ScoresTable::SetTableWidth(236.);
+		ScoresTable::SetDisplayTeamScore(True);
+		ScoresTable::SetColumnWidth("Custom1", 5.);
+		ScoresTable::SetColumnName("Custom1", "Hits");
+		ScoresTable::SetDefaultCustom1("0");
+		ScoresTable::SetColumnWidth("Custom2", 5.);
+		ScoresTable::SetColumnName("Custom2", "Atk");
+		ScoresTable::SetDefaultCustom2("0");
+		ScoresTable::SetColumnWidth("Custom3", 5.);
+		ScoresTable::SetColumnName("Custom3", "Def");
+		ScoresTable::SetDefaultCustom3("0");
+		ScoresTable::SetTableBackgroundImage("file://Media/Manialinks/ShootMania/Common/scoresBg.dds", <0., 62.>, <260., 200.>);
+		ScoresTable::Build();
 		//Top::MatchBegin();
 		Score::MatchBegin(False);	
 		Airshot::MatchBegin();
 		Victory::MatchBegin();
 		if(AutoBalance) AutoTeamBalance();
 		Ladder_OpenMatch_All();
+		
 		+++MatchBegin+++
 		
 		declare Round = 0;
@@ -1287,10 +1289,6 @@ main() {
 			
 			UpdateBlockSpawnQueue(1);
 			UpdateBlockSpawnQueue(2);
-		
-			BotPlayers.clear();
-			BotCount.clear();
-			DestroyAllBotPlayers();
 			
 			/*for (Num, 0, BotsBlue - 1)
 			{
@@ -1301,17 +1299,6 @@ main() {
 			{
 				BotPlayers.add(_CreateBotPlayer(2, Now + RespawnTime + Num * 500));
 			}*/
-			
-			for (Clan, 1, 2)
-			{
-				if (ClansNbPlayers[Clan] < BotsFill)
-				{
-					for (I, 0, BotsFill - ClansNbPlayers[Clan] - 1)
-					{
-						BotPlayers.add(_CreateBotPlayer(Clan, Now + RespawnTime + I * 500));
-					}
-				}
-			}
 			
 			Update3dMarkers();
 			
@@ -1324,6 +1311,21 @@ main() {
 				{
 					BlockSpawns[SpawnId].Base.Clan = Clan;
 					BlockSpawns[SpawnId].Base.IsActive = True;
+				}
+			}
+		
+			BotPlayers.clear();
+			BotCount.clear();
+			DestroyAllBotPlayers();
+			
+			for (Clan, 1, 2)
+			{
+				if (ClansNbPlayers[Clan] < BotsFill)
+				{
+					for (I, 0, BotsFill - ClansNbPlayers[Clan] - 1)
+					{
+						BotPlayers.add(_CreateBotPlayer(Clan, Now + RespawnTime + I * 500));
+					}
 				}
 			}
 			
@@ -1494,7 +1496,11 @@ main() {
 						}
 						if ((Event.Victim == Event.Shooter || Event.Shooter == Null) && Event.Victim.Id == FlagCarrier[Event.Victim.CurrentClan])
 						{
-							declare netwrite HasFlag for UIManager.GetUI(Event.Victim) = False;
+							if (!Event.Victim.IsBot)
+							{
+								declare netwrite HasFlag for UIManager.GetUI(Event.Victim) = False;
+								HasFlag = False;
+							}
 							//Offzone
 							
 							FlagCarrier[Event.Victim.CurrentClan] = NullId;
@@ -1504,7 +1510,6 @@ main() {
 							Event.Victim.User, CUIConfig::EAvatarVariant::Default, 
 							CUIConfig::EUISound::Capture, 0, Event.Victim.Name, Teams[2 - Event.Victim.CurrentClan].ColorizedName
 							);
-							HasFlag = False;
 							FlagObjects[3 - Event.Victim.CurrentClan].SetPosition(Poles[3 - Event.Victim.CurrentClan].Position - <0., 1., 0.>);
 						}
 						else if(Event.Victim != Null)
