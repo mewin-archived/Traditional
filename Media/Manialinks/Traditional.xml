@@ -1,0 +1,54 @@
+<?xml version="0.1" encoding="utf-8" standalone="yes" ?>
+<manialink version="1" background="title">
+	<label scale="0.7" posn="-160 -90" halign="left" valign="bottom">$h[mewinsml]Mewins ML$h</label>
+	<frame id="menu" posn="-150 90 -20">
+		<quad bgcolor="f00" id="menu" posn="0 0 -10" sizen="80 180" image="file://Media/Images/Traditional_MenuBar.png" />
+		<frame posn="0 -50">
+			<quad style="Icons128x128_1" substyle="Multiplayer" posn="65 3" valign="middle" sizen="10 10" action="menu_internet" />
+			<label posn="10 0" scale="1.2" style="TextButtonNav" action="menu_internet">Play Online</label>
+		</frame>
+		<quad bgcolor="f00" id="menu" posn="0 0 -10" sizen="80 180" image="file://Media/Images/Traditional_MenuBar.png" />
+		<frame posn="0 -70">
+			<quad style="Icons128x128_1" substyle="Rankings" posn="65 3" valign="middle" sizen="10 10" action="menu_online" />
+			<label posn="10 0" scale="1.2" style="TextButtonNav" action="menu_lan">Rankings</label>
+		</frame>
+		<frame posn="0 -100">
+			<quad style="Icons128x128_1" substyle="Lan" posn="65 3" valign="middle" sizen="10 10" action="menu_local" />
+			<label posn="10 0" scale="1.2" style="TextButtonNav" action="menu_local">Local Game</label>
+		</frame>
+		<frame posn="0 -120">
+			<quad style="Icons128x128_1" substyle="Editor" posn="65 3" valign="middle" sizen="10 10" action="menu_editors" />
+			<label posn="10 -0" scale="1.2" style="TextButtonNav" action="menu_editors">Editors</label>
+		</frame>
+		<frame posn="0 -140">
+			<quad style="Icons128x128_1" substyle="Advanced" posn="65 3" valign="middle" sizen="10 10" scriptevents="1" id="about_pic" />
+			<label posn="10 0" scale="1.2" style="TextButtonNav" scriptevents="1" id="about">About Traditional</label>
+		</frame>
+		<frame posn="0 -160">
+			<quad style="Icons128x128_1" substyle="Quit" posn="65 3" valign="middle" sizen="10 10" action="quit" />
+			<label posn="10 0" scale="1.2" style="TextButtonNav" action="quit">Quit</label>
+		</frame>
+	</frame>
+	<script><!--
+		main()
+		{
+			while (True)
+			{
+				yield;
+				foreach(Event in PendingEvents)
+				{
+					if (Event.Type == CMlEvent::Type::MouseClick)
+					{
+						switch(Event.ControlId)
+						{
+							case "about":
+								OpenLink("file://Media/Manialinks/Traditional_About.xml", CMlScript::LinkType::Goto);
+							case "about_pic":
+								OpenLink("file://Media/Manialinks/Traditional_About.xml", CMlScript::LinkType::Goto);
+						}
+					}
+				}
+			}
+		}
+	--></script>
+</manialink>

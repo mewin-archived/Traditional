@@ -1,0 +1,600 @@
+#Include "MathLib" as MathLib
+
+#Const		RocketItemPath				"SMCommon/Pickups/Rocket.Item.gbx"
+#Const		LaserItemPath				"SMCommon/Pickups/Laser.Item.gbx"
+#Const		NucleusItemPath				"SMCommon/Pickups/Nucleus.Item.gbx"
+#Const		ArrowItemPath				"SMCommon/Pickups/Arrow.Item.gbx"
+#Const		ArmorItemPath				"SMCommon/Pickups/Armor.Item.gbx"
+#Const		DoubleDamageItemPath		"DoubleDamage.Item.gbx"
+#Const		WeaponNames					[1 => "Rocket", 2 => "Laser", 3 => "Nucleus", 4 => "Arrow"]
+
+declare Ident[Integer] PickupItems;
+declare Integer ItemRespawnTime;
+declare Integer ArmorGainMax;
+declare Integer DoubleDamageTime;
+declare Boolean AllWeapons;
+declare Real[Integer] RespawnModifier;
+declare CUILayer[Ident] UILayers;
+
+Void LoadModels()
+{
+	PickupItems = [ 1 => ItemList_Add(RocketItemPath), 2 => ItemList_Add(LaserItemPath), 3 => ItemList_Add(NucleusItemPath), 4 => ItemList_Add(ArrowItemPath), 5 => ItemList_Add(ArmorItemPath), 6 => ItemList_Add(DoubleDamageItemPath)];
+}
+
+Void SetAllWeapons(Boolean All)
+{
+	AllWeapons = All;
+}
+
+Boolean GetAllWeapons()
+{
+	return AllWeapons;
+}
+
+Void SetItemRespawnTime(Integer Time)
+{
+	ItemRespawnTime = Time;
+}
+
+Integer GetItemRespawnTime()
+{
+	return ItemRespawnTime;
+}
+
+Void SetArmorGainMax(Integer Max)
+{
+	ArmorGainMax = Max;
+}
+
+Integer GetArmorGainMax()
+{
+	return ArmorGainMax;
+}
+
+Void SetDoubleDamageTime(Integer Time)
+{
+	DoubleDamageTime = Time;
+}
+
+Integer GetDoubleDamageTime()
+{
+	return DoubleDamageTime;
+}
+
+Void ResetRespawnModifier(Integer PickupType)
+{
+	RespawnModifier.removekey(PickupType);
+}
+
+Void SetRespawnModifier(Integer PickupType, Real Modifier)
+{
+	if(Modifier != 1.)
+	{
+		RespawnModifier[PickupType] = Modifier;
+	}
+	else
+	{
+		ResetRespawnModifier(PickupType);
+	}
+}
+
+Void ResetRespawnModifiers()
+{
+	RespawnModifier.clear();
+}
+
+Real GetRespawnModifier(Integer PickupType)
+{
+	if (RespawnModifier.existskey(PickupType))
+	{
+		return RespawnModifier[PickupType];
+	}
+	return 1.;
+}
+
+Void RespawnItems()
+{
+	declare CSmObject[] ObjectsToDestroy;
+	foreach (Object in Objects)
+	{
+		if (Object.Status == CSmObject::EStatus::Unspawned)
+		{
+			declare TmpObject for Object = False;
+			if (!TmpObject)
+			{
+				declare ObjectRespawnTime for Object = Now + ItemRespawnTime;
+				declare Vec3 RespawnLocation for Object;
+				if (ObjectRespawnTime < Now)
+				{
+					Object.SetPosition(RespawnLocation);
+				}
+			}
+			else
+			{
+				declare Integer SpawnTime for Object;
+				declare Integer LifeTime for Object;
+				
+				if (SpawnTime + LifeTime < Now)
+				{
+					ObjectsToDestroy.add(Object);
+				}
+			}
+		}
+	}
+	
+	foreach(Object in ObjectsToDestroy)
+	{
+		ObjectDestroy(Object);
+	}
+}
+
+Void SpawnItems()
+{
+	foreach (Pole in BlockPoles)
+	{
+		if (Pole.Tag == "Pickup")
+		{
+			declare NewObject = ObjectCreate(PickupItems[Pole.Order]);
+			declare Integer PickupType for NewObject;
+			
+			PickupType = Pole.Order;
+			
+			NewObject.SetPosition(Pole.Position);
+		}
+	}
+}
+
+Void OnPlayerSpawn(CSmPlayer Player, CSmMode::EWeapon DefaultWeapon, Integer MaxAmmo, Integer ArmorMax, Real Gain, Boolean AllowSwitch)
+{
+	declare CurrentWeapon for Player = 1;
+	declare HasWeaponRocket for Player = False;
+	declare HasWeaponLaser for Player = False;
+	declare HasWeaponNucleus for Player = False;
+	declare HasWeaponArrow for Player = False;
+	declare Integer DoubleDamagePickup for Player;
+							
+	DoubleDamagePickup = 0;
+	
+	if (!AllWeapons)
+	{
+		HasWeaponRocket = False;
+		HasWeaponLaser = False;
+		HasWeaponNucleus = False;
+		HasWeaponArrow = False;
+	}
+	else
+	{
+		HasWeaponRocket = True;
+		HasWeaponLaser = True;
+		HasWeaponNucleus = True;
+		HasWeaponArrow = True;
+	}
+	
+	switch(DefaultWeapon)
+	{
+		case CSmMode::EWeapon::Rocket: {
+			HasWeaponRocket = True;
+			CurrentWeapon = 1;
+		}
+		case CSmMode::EWeapon::Laser: {
+			HasWeaponLaser = True;
+			CurrentWeapon = 2;
+		}
+		case CSmMode::EWeapon::Nucleus: {
+			HasWeaponNucleus = True;
+			CurrentWeapon = 3;
+		}
+		case CSmMode::EWeapon::Arrow: {
+			HasWeaponArrow = True;
+			CurrentWeapon = 4;
+		}
+	}
+	
+	SetPlayerWeapon(Player, DefaultWeapon, AllowSwitch);
+	if (MaxAmmo > 0)
+	{
+		SetPlayerAmmoMax(Player, DefaultWeapon, MaxAmmo);
+	}
+	
+	if (ArmorMax > 0)
+	{
+		Player.ArmorMax = ArmorMax;
+	}
+	if (Gain > 0.)
+	{
+		Player.AmmoGain = Gain;
+	}
+}
+
+Void OnPlayerSpawn(CSmPlayer Player, CSmMode::EWeapon DefaultWeapon)
+{
+	OnPlayerSpawn(Player, DefaultWeapon, -1, -1, -1., True);
+}
+
+Boolean HandlePickup(CSmObject Object, CSmPlayer Player)
+{
+	declare Integer PickupType for Object;
+	declare Boolean HasWeaponRocket for Player;
+	declare Boolean HasWeaponLaser for Player;
+	declare Boolean HasWeaponNucleus for Player;
+	declare Boolean HasWeaponArrow for Player;
+	declare Integer DoubleDamagePickup for Player = 0;
+	declare PickedUp = False;
+	
+	if (PickupType == 1 && !HasWeaponRocket)
+	{
+		HasWeaponRocket = True;
+		PickedUp = True;
+	}
+	else if (PickupType == 2 && !HasWeaponLaser)
+	{
+		HasWeaponLaser = True;
+		PickedUp = True;
+	}
+	else if (PickupType == 3 && !HasWeaponNucleus)
+	{
+		HasWeaponNucleus = True;
+		PickedUp = True;
+	}
+	else if (PickupType == 4 && !HasWeaponArrow)
+	{
+		HasWeaponArrow = True;
+		PickedUp = True;
+	}
+	else if (PickupType == 5 && Player.Armor < ArmorGainMax)
+	{
+		if (Player.Armor < Player.ArmorMax)
+		{
+			Player.Armor += 100;
+		}
+		else
+		{
+			Player.ArmorMax += 100;
+			Player.Armor = Player.ArmorMax;
+		}
+		PickedUp = True;
+	}
+	else if (PickupType == 6 && DoubleDamagePickup + DoubleDamageTime < Now)
+	{
+		declare TmpObject for Object = False;
+		declare Integer SpawnTime for Object;
+		declare Integer LifeTime for Object;
+		PickedUp = True;
+		if (!TmpObject)
+		{
+			DoubleDamagePickup = Now;
+			//PowerUp::AddPowerup(Player, "powerup.doubleDamage", Now + DoubleDamageTime);
+		}
+		else
+		{
+			DoubleDamagePickup = LifeTime + SpawnTime - DoubleDamageTime;
+			log (Now - DoubleDamagePickup);
+		}
+	}
+	
+	if (PickedUp)
+	{
+		declare Integer ObjectRespawnTime for Object;
+		declare TmpObject for Object = False;
+		declare Vec3 RespawnLocation for Object;
+		declare _RespawnModifier = 1.;
+		
+		if (!TmpObject)
+		{
+			if (RespawnModifier.existskey(PickupType))
+			{
+				_RespawnModifier = RespawnModifier[PickupType];
+			}
+			ObjectRespawnTime = Now + MathLib::NearestInteger(ItemRespawnTime * _RespawnModifier);
+			RespawnLocation = Object.Position;
+			Object.SetUnspawned();
+		}
+		else
+		{
+			ObjectDestroy(Object);
+		}
+	}
+	
+	return PickedUp;
+}
+
+
+Real Min(Real V1, Real V2)
+{
+	if (V1 < V2)
+	{
+		return V1;
+	}
+	return V2;
+}
+
+Boolean CanPickupItem(CSmPlayer Player, CSmObject Item)
+{
+	declare Integer PickupType for Item;
+	declare Boolean HasWeaponRocket for Player;
+	declare Boolean HasWeaponLaser for Player;
+	declare Boolean HasWeaponNucleus for Player;
+	declare Boolean HasWeaponArrow for Player;
+	
+	if (PickupType < 1 || PickupType > 5)
+	{
+		return False;
+	}
+	
+	if (PickupType == 5 && Player.Armor >= ArmorGainMax)
+	{
+		return False;
+	}
+	
+	if (PickupType == 1 && HasWeaponRocket)
+	{
+		return False;
+	}
+	
+	if (PickupType == 2 && HasWeaponLaser)
+	{
+		return False;
+	}
+	
+	if (PickupType == 3 && HasWeaponNucleus)
+	{
+		return False;
+	}
+	
+	if (PickupType == 4 && HasWeaponArrow)
+	{
+		return False;
+	}
+	
+	return True;
+}
+
+
+Void SwitchWeapon(CSmPlayer Player, CSmModeEvent::EActionSlots Action)
+{
+	declare CurrentWeapon for Player = 1;
+	declare HasWeaponRocket for Player = False;
+	declare HasWeaponLaser for Player = False;
+	declare HasWeaponNucleus for Player = False;
+	declare HasWeaponArrow for Player = False;
+	
+	if (AllWeapons)
+	{
+		HasWeaponRocket = True;
+		HasWeaponLaser = True;
+		HasWeaponNucleus = True;
+		HasWeaponArrow = True;
+	}
+	
+	declare Integer RequestedWeapon;
+	if (Action == CSmModeEvent::EActionSlots::Activable1 && HasWeaponRocket)
+	{
+		RequestedWeapon = 1;
+	}
+	else if (Action == CSmModeEvent::EActionSlots::Activable2 && HasWeaponLaser)
+	{
+		RequestedWeapon = 2;
+	}
+	else if (Action == CSmModeEvent::EActionSlots::Activable3 && HasWeaponNucleus)
+	{
+		RequestedWeapon = 3;
+	}
+	else if (Action == CSmModeEvent::EActionSlots::Activable4 && HasWeaponArrow)
+	{
+		RequestedWeapon = 4;
+	}
+	else
+	{
+		return;
+	}
+	if (CurrentWeapon != RequestedWeapon)
+	{
+		CurrentWeapon = RequestedWeapon;
+		declare Weapon = CSmMode::EWeapon::Rocket;
+		/*declare MaxAmmo = MathLib::NearestInteger(AmmoMax * RocketFactor);
+		declare Gain = AmmoGain * RocketGainFactor;*/
+		if (CurrentWeapon == 4)
+		{
+			Weapon = CSmMode::EWeapon::Arrow;
+			//MaxAmmo = MathLib::NearestInteger(AmmoMax * ArrowFactor);
+			//Gain = AmmoGain * ArrowGainFactor;
+		}
+		else if (CurrentWeapon == 3)
+		{
+			Weapon = CSmMode::EWeapon::Nucleus;
+			//MaxAmmo = MathLib::NearestInteger(AmmoMax * NucleusFactor);
+			//Gain = AmmoGain * NucleusGainFactor;
+		}
+		else if (CurrentWeapon == 2)
+		{
+			Weapon = CSmMode::EWeapon::Laser;
+			//MaxAmmo = MathLib::NearestInteger(AmmoMax * LaserFactor);
+			//Gain = AmmoGain * LaserGainFactor;
+		}
+		/*if (MaxAmmo < 1)
+		{
+			MaxAmmo = 1;
+		}*/
+		SetPlayerWeapon(Player, Weapon, False);
+		/*SetPlayerAmmoMax(Player, Weapon, MaxAmmo);
+		if (Gain > 10.)
+		{
+			Gain = 10.;
+		}
+		if (Gain < 0.1)
+		{
+			Gain = 0.1;
+		}
+		Player.AmmoGain = Gain;*/
+	}
+}
+
+Void SwitchWeaponBy_Do(CSmPlayer Player, Integer By, Integer P_RequestedWeapon)
+{
+	declare RequestedWeapon = P_RequestedWeapon;
+	declare CurrentWeapon for Player = 1;
+	declare HasWeaponRocket for Player = True;
+	declare HasWeaponLaser for Player = False;
+	declare HasWeaponNucleus for Player = False;
+	declare HasWeaponArrow for Player = False;
+	
+	if (RequestedWeapon < 1)
+	{
+		RequestedWeapon = 4;
+	}
+	else if (RequestedWeapon > 4)
+	{
+		RequestedWeapon = 1;
+	}
+	
+	if (AllWeapons)
+	{
+		HasWeaponRocket = True;
+		HasWeaponLaser = True;
+		HasWeaponNucleus = True;
+		HasWeaponArrow = True;
+	}
+	if (RequestedWeapon == 1 && !HasWeaponRocket)
+	{
+		SwitchWeaponBy_Do(Player, By, RequestedWeapon + By);
+	}
+	else if (RequestedWeapon == 2 && !HasWeaponLaser)
+	{
+		SwitchWeaponBy_Do(Player, By, RequestedWeapon + By);
+	}
+	else if (RequestedWeapon == 3 && !HasWeaponNucleus)
+	{
+		SwitchWeaponBy_Do(Player, By, RequestedWeapon + By);
+	}
+	else if (RequestedWeapon == 4 && !HasWeaponArrow)
+	{
+		SwitchWeaponBy_Do(Player, By, RequestedWeapon + By);
+	}
+	else if (CurrentWeapon != RequestedWeapon)
+	{
+		CurrentWeapon = RequestedWeapon;
+		declare Weapon = CSmMode::EWeapon::Rocket;
+		//declare MaxAmmo = MathLib::NearestInteger(AmmoMax * RocketFactor);
+		//declare Gain = AmmoGain * RocketGainFactor;
+		if (CurrentWeapon == 4)
+		{
+			Weapon = CSmMode::EWeapon::Arrow;
+			//MaxAmmo = MathLib::NearestInteger(AmmoMax * ArrowFactor);
+			//Gain = AmmoGain * ArrowGainFactor;
+		}
+		else if (CurrentWeapon == 3)
+		{
+			Weapon = CSmMode::EWeapon::Nucleus;
+			//MaxAmmo = MathLib::NearestInteger(AmmoMax * NucleusFactor);
+			//Gain = AmmoGain * NucleusGainFactor;
+		}
+		else if (CurrentWeapon == 2)
+		{
+			Weapon = CSmMode::EWeapon::Laser;
+			//MaxAmmo = MathLib::NearestInteger(AmmoMax * LaserFactor);
+			//Gain = AmmoGain * LaserGainFactor;
+		}
+		/*if (MaxAmmo < 1)
+		{
+			MaxAmmo = 1;
+		}*/
+		SetPlayerWeapon(Player, Weapon, False);
+		//SetPlayerAmmoMax(Player, Weapon, MaxAmmo);
+		/*if (Gain > 10.)
+		{
+			Gain = 10.;
+		}
+		if (Gain < 0.1)
+		{
+			Gain = 0.1;
+		}
+		Player.AmmoGain = Gain;*/
+	}
+}
+
+Void SwitchWeaponBy(CSmPlayer Player, Integer By)
+{
+	declare CurrentWeapon for Player = 1;
+	
+	SwitchWeaponBy_Do(Player, By, CurrentWeapon + By);
+}
+
+Text GetML(CSmPlayer Player)
+{
+	declare ML = """<frame posn="0 -50">""";
+	declare Boolean HasWeaponRocket for Player;
+	declare Boolean HasWeaponLaser for Player;
+	declare Boolean HasWeaponNucleus for Player;
+	declare Boolean HasWeaponArrow for Player;
+	declare CurrentWeapon for Player = 1;
+	
+	for (Weapon, 1, 4)
+	{
+		ML ^= """<quad posn="{{{-30 + Weapon * 10}}} 0" image="file://Media/Manialinks/ShootMania/Common/""";
+		declare Boolean HasWeapon;
+		switch (Weapon)
+		{
+			case 1:
+				HasWeapon = HasWeaponRocket;
+			case 2:
+				HasWeapon = HasWeaponLaser;
+			case 3:
+				HasWeapon = HasWeaponNucleus;
+			case 4:
+				HasWeapon = HasWeaponArrow;
+		}
+		if (Weapon != CurrentWeapon)
+		{
+			ML ^= WeaponNames[Weapon];
+			if (HasWeapon)
+			{
+				ML ^= "White";
+			}
+		}
+		else
+		{
+			switch (Weapon)
+			{
+				case 1:
+					ML ^= "WpRocket";
+				case 2:
+					ML ^= "WpLaser";
+				case 3:
+					ML ^= "WpNucleus";
+				case 4:
+					ML ^= "WpArrows";
+			}
+		}
+		ML ^= ".dds\"";
+		ML ^= """ sizen="10 10" />""";
+		ML ^= """<label posn="{{{-25 + Weapon * 10}}} -10" halign="center" valign="top">""";
+		if (Weapon == CurrentWeapon)
+		{
+			ML ^= "$0d0";
+		}
+		else if (HasWeapon)
+		{
+			ML ^= "$fff";
+		}
+		else
+		{
+			ML ^= "$000";
+		}
+		ML ^= """{{{Weapon}}}</label>""";
+	}
+	
+	ML ^= "</frame>";
+	return ML;
+}
+
+Void UpdateML(CSmPlayer Player)
+{
+	if (Player.IsBot) return;
+	if (!UILayers.existskey(Player.Id))
+	{
+		UILayers[Player.Id] <=> UIManager.UILayerCreate();
+		UIManager.GetUI(Player).UILayers.add(UILayers[Player.Id]);
+	}
+	
+	UILayers[Player.Id].ManialinkPage = GetML(Player);
+}

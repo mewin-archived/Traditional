@@ -1,0 +1,93 @@
+#Include "TextLib" as TextLib
+
+declare Text[Text][Text] Translations;
+declare Text DefaultLang;
+
+Void AddTranslation(Text _Name, Text _Lang, Text _Translation)
+{
+	if( !Translations.existskey(_Lang))
+	{
+		Translations[_Lang] = Text[Text];
+	}
+	Translations[_Lang][_Name] = _Translation;
+}
+
+Void LoadLanguage(Text FileName)
+{
+	declare Request = Http.CreateGet("file://Media/" ^ FileName);
+	
+	while (!Request.IsCompleted)
+	{
+		yield;
+	}
+	
+	declare Document = Xml.Create(Request.Result);
+	if (Document == Null || Document.Root == Null)
+	{
+		log("ERROR: Language file is invalid or does not exist: " ^ FileName);
+	}
+	else if (Document.Root.Name != "translation")
+	{
+		log("WARNING: Not a valid language file: " ^ FileName);
+	}
+	else
+	{
+		declare Lang = Document.Root.GetAttributeText("lang", "");
+		if(Lang == "")
+		{
+			log("ERROR: No language given: " ^ FileName);
+		}
+		else
+		{
+			foreach(Node in Document.Root.Children)
+			{
+				AddTranslation(Node.Name, Lang, Node.TextContents);
+			}
+		}
+	}
+}
+
+Text GetTranslation(Text _Name, Text _Lang)
+{
+	if (Translations.existskey(_Lang) && Translations[_Lang].existskey(_Name))
+	{
+		return Translations[_Lang][_Name];
+	}
+	else if (Translations.existskey(DefaultLang) && Translations[DefaultLang].existskey(_Name))
+	{
+		return Translations[DefaultLang][_Name];
+	}
+	return _Name;
+}
+
+Void SetDefaultLang(Text _Lang)
+{
+	DefaultLang = _Lang;
+}
+
+Text GetUserTranslation(Text _Name, CUser _User)
+{
+	return GetTranslation(_Name, _User.Language);
+}
+
+Void SendNotice(Text _Text, CUIConfig::ENoticeLevel _NoticeLevel, CUser _User, CUIConfig::EAvatarVariant _Avatar, CUIConfig::EUISound _Sound, Integer _SoundVariant, Text _Replace1, Text _Replace2)
+{
+	foreach(Player in Players)
+	{
+		if(Player.IsFakePlayer) continue;
+		declare UI <=> UIManager.GetUI(Player);
+		UI.SendNotice(TextLib::Compose(GetUserTranslation(_Text, Player.User), _Replace1, _Replace2) , _NoticeLevel, _User, _Avatar, _Sound, _SoundVariant);
+	}
+	
+	foreach(Spectator in Spectators)
+	{
+		if(Spectator.IsFakePlayer) continue;
+		declare UI <=> UIManager.GetUI(Spectator);
+		UI.SendNotice(TextLib::Compose(GetUserTranslation(_Text, Spectator.User), _Replace1, _Replace2) , _NoticeLevel, _User, _Avatar, _Sound, _SoundVariant);
+	}
+}
+
+Void Init()
+{
+	SetDefaultLang("en");
+}

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<maniaplanet_title version="2">
+	<id>Traditional@mewin</id>
+	<name>Traditional</name>
+	<desc>Includes some traditional shooter game modes like Capture the Flag and Domination.</desc>
+	<url>mewinsml</url>
+	<base>SMStorm</base>
+	<packaging>
+		<image name="PackImage.jpg" />
+		<logos name="Logos.png" />
+		<collection></collection>
+		<sortindex>100</sortindex>
+		<station_manialink url="" />
+		<boxcase_manialink url="" />
+	</packaging>
+	<menu>
+		<background_image name="MenuBg.jpg" />
+		<background_replay name="Replays\[CTF] Center Park_Bg.Replay.Gbx" />
+		<header name="MenuHeader.png" />
+		<music name="" />
+		<manialink url="" />
+		<color rgba="" />
+	</menu>
+	<music folder="" />
+	<editor>
+		<maptype name="" />
+		<simple_editor_map name="" />
+	</editor>
+	<solo>
+		<medals>0</medals>
+		<!-- either campaign or playlist-->
+		<mode name="Modes\ShootMania\CaptureTheFlag.Script.txt" />
+		<campaign folder="" />
+		<playlist name="" />
+	</solo>
+	<network>
+		<mode name="" />
+		<playlist name="" />
+	</network>
+	<splitscreen>
+		<mode name="" />
+		<playlist name="" />
+	</splitscreen>
+	<files>
+		<file name="Scripts\Modes\ShootMania\CaptureTheFlag.Script.txt" public="false" internal="false" />
+		<file name="Scripts\MapTypes\ShootMania\CTFArena.Script.txt" public="false" internal="false" />
+		<file name="Scripts\Modes\ShootMania\Domination.Script.txt" public="false" internal="true" />
+		<file name="Scripts\Modes\ShootMania\Infection.Script.txt" public="false" internal="true" />
+		<file name="Scripts\MapTypes\ShootMania\DominationArena.Script.txt" public="false" internal="true" />
+		<file name="Scripts\Modes\ShootMania\TeamDeathMatch.Script.txt" public="false" internal="false" />
+		<file name="Items\DoubleDamage.Item.gbx" public="false" internal="false" />
+		<file name="Items\Meshes\DoubleDamage.Mesh.gbx" public="false" internal="false" />
+		<file name="Items\Meshes\Texture\DoubleDamage_D.dds" public="false" internal="false" />
+		<file name="Items\Meshes\Texture\DoubleDamage_I.dds" public="false" internal="false" />
+		<file name="Items\Meshes\Texture\DoubleDamage_N.dds" public="false" internal="false" />
+		<file name="Items\Meshes\Texture\DoubleDamage_S.dds" public="false" internal="false" />
+	</files>
+	<folders>
+		<folder name="Items\CTF" public="false" internal="false" />
+		<folder name="Items\SMCommon" public="false" internal="false" />
+		<folder name="Media\Translations\CTF" public="false" internal="false" />
+		<folder name="Media\Translations\Multikill" public="false" internal="false" />
+		<folder name="Maps\Traditional" public="false" internal="true" />
+	</folders>
+	<mod name="" />
+	<title_version></title_version>
+	<gameplay_features>0</gameplay_features>
+	<menu_style name="" />
+	<PlayerItemId></PlayerItemId>
+</maniaplanet_title>

@@ -1,0 +1,205 @@
+#Include "MathLib" as MathLib
+#Include "Libs/Mewin/Common/Lang.Script.txt" as Lang
+#Include "Libs/Mewin/ShootMania/Sound.Script.txt" as Sound
+
+declare Integer MinimumPublicCount;
+declare Integer MultiKillDelay;
+declare Boolean FirstBloodDone;
+
+Void Init(Boolean MultiLang)
+{
+	MinimumPublicCount = 3;
+	MultiKillDelay = 2500;
+	FirstBloodDone = False;
+	
+	Lang::LoadLanguage("Translations/Multikill/en.xml");
+	
+	if (MultiLang)
+	{
+		//TODO: ...
+	}
+}
+
+Void ResetFirstBlood()
+{
+	FirstBloodDone = False;
+}
+
+Void ResetSpree(CSmPlayer Player)
+{
+	declare KillingSpree for Player = 0;
+	declare DeathSpree for Player = 0;
+	declare HeadShots for Player = 0;
+	
+	KillingSpree = 0;
+	DeathSpree = 0;
+	HeadShots = 0;
+}
+
+Void ResetSprees()
+{
+	foreach (Player in Players)
+	{
+		ResetSpree(Player);
+	}
+	
+	foreach (Player in BotPlayers)
+	{
+		ResetSpree(Player);
+	}
+}
+
+Void OnPlayerKill(CSmPlayer Player)
+{
+	if (!FirstBloodDone)
+	{
+		FirstBloodDone = True;
+		Lang::SendNotice("special.firstbloodPublic", CUIConfig::ENoticeLevel::PlayerInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0, Player.Name, "");
+		
+		if (!Player.IsBot)
+		{
+			Sound::PlaySound(Player, "Multikill/Special.Firstblood");
+			UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation("special.firstbloodPrivate", Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0);
+		}
+	}
+	
+	if (Player == Null || Player.IsFakePlayer)
+	{
+		return;
+	}
+	declare LastKill for Player = 0;
+	declare MultiKill for Player = 0;
+	declare KillingSpree for Player = 0;
+	declare DeathSpree for Player = 0;
+	
+	DeathSpree = 0;
+	KillingSpree += 1;
+	
+	if (LastKill + MultiKillDelay > Now)
+	{
+		MultiKill += 1;
+	}
+	else
+	{
+		MultiKill = 1;
+	}
+	LastKill = Now;
+	
+	if (MultiKill > 1)
+	{
+		if (MultiKill >= MinimumPublicCount)
+		{
+			declare Text MultikillText;
+			if (MultiKill < 6)
+			{
+				MultikillText = "multi.public" ^ MultiKill;
+			}
+			else
+			{
+				MultikillText = "multi.public6";
+			}
+			Lang::SendNotice(MultikillText, CUIConfig::ENoticeLevel::PlayerInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0, Player.Name, "");
+		}
+		declare Text MultikillText;
+		if (MultiKill < 6)
+		{
+			MultikillText = "multi.private" ^ MultiKill;
+		}
+		else
+		{
+			MultikillText = "multi.private6";
+		}
+		if (!Player.IsBot)
+			UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation(MultikillText, Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::TiePoint, 0);
+		Sound::PlaySound(Player, "Multikill/Multi." ^ MultiKill);
+	}
+	if (KillingSpree % 5 == 0 && KillingSpree <= 25)
+	{
+		if (!Player.IsBot)
+			UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation("spree.private" ^ KillingSpree, Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::TiePoint, 0);
+			
+		Lang::SendNotice("spree.public" ^ KillingSpree, CUIConfig::ENoticeLevel::PlayerInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0, Player.Name, "");
+			Sound::PlaySound(Player, "Multikill/Spree." ^ KillingSpree);
+	}
+	else if (KillingSpree % 5 == 0)
+	{
+			
+		Lang::SendNotice("spree.publicMore", CUIConfig::ENoticeLevel::PlayerInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0, Player.Name, "" ^ KillingSpree);
+	}
+}
+
+Void OnPlayerArmorEmpty(CSmPlayer Player)
+{
+	declare KillingSpree for Player = 0;
+	declare DeathSpree for Player = 0;
+	declare HeadShots for Player = 0;
+	
+	HeadShots = 0;
+	KillingSpree = 0;
+	DeathSpree += 1;
+}
+
+Void PreCacheSounds()
+{
+	for (I, 2, 6)
+	{
+		Sound::PreCacheSound("Multikill/Multi." ^ I);
+	}
+	
+	for (I, 5, 25, 5)
+	{
+		Sound::PreCacheSound("Multikill/Spree." ^ I);
+	}
+	
+	Sound::PreCacheSound("Multikill/Special.Headshot");
+	Sound::PreCacheSound("Multikill/Special.Headhunter");
+	Sound::PreCacheSound("Multikill/Special.Firstblood");
+}
+
+Void OnHeadShot(CSmPlayer Player)
+{
+	if (Player.IsBot) return;
+	declare HeadShots for Player = 0;
+	
+	HeadShots += 1;
+	if (HeadShots == 15)
+	{
+		UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation("special.headhunter", Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0);
+		Sound::PlaySound(Player, "Multikill/Special.Headhunter");
+	}
+	else
+	{
+		UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation("special.headshot", Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0);
+		Sound::PlaySound(Player, "Multikill/Special.Headshot");
+	}
+}
+
+Real Skalar(Vec3 _Vec1, Vec3 _Vec2)
+{
+	return _Vec1[0]*_Vec2[0] + _Vec1[1]*_Vec2[1] + _Vec1[2]*_Vec2[2];
+}
+
+Boolean IsHeadShot(CSmModeEvent _Event)
+{
+	if (_Event == Null || _Event.Shooter == Null || _Event.Victim == Null) return False;
+	if (_Event.WeaponNum != This.GetWeaponNum(CSmMode::EWeapon::Laser)) return False;
+	
+	declare HeadPosi = <_Event.Victim.Position[0]+_Event.Victim.AimDirection[0]*0.2,
+						_Event.Victim.Position[1]+1.5,
+						_Event.Victim.Position[2]+_Event.Victim.AimDirection[2]*0.2>;
+	declare ShootPosi = _Event.Shooter.Position+<0.0, 1.35, 0.0>;
+	declare ShootDir = _Event.Shooter.AimDirection;
+	
+	declare a1 = Skalar(ShootDir, ShootPosi);
+	declare a2 = Skalar(ShootDir, ShootDir);
+	declare a3 = Skalar(ShootDir, -HeadPosi);
+	
+	declare gamma = (a1+a3)/(-1*a2);
+	declare stutz = ShootPosi + (gamma*ShootDir);
+	
+	declare distance = MathLib::Distance(HeadPosi, stutz);
+	if (distance > 0.2) return False;
+
+	
+	return True;
+}

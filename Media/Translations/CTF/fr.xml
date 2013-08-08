@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<translation lang="fr">
+    <flag.capture>%1 $z$sa Capturé le Drapeau %2</flag.capture>
+    <flag.take>%1 $z$sa pris le Drapeau %2</flag.take>
+    <flag.drop>%1 $z$sa perdu le Drapeau %2</flag.drop>
+    <flag.return>%1 $z$sa récupéré le Drapeau %2</flag.return>
+    <flag.reset>$s$z Le Drapeau %1 est retourné dans sa base </flag.reset>
+    <game.overtime>Overtime</game.overtime>
+    <top.damages>Top 5 Score</top.damages>
+    <top.captures>Top 5 Captures</top.captures>
+    <top.returns>Top 5 Recupérations</top.returns>
+    <team.name1>$00fBleu</team.name1>
+    <team.name2>$f00Rouge</team.name2>
+    <round.win>%1 $z$sGagne la manche!</round.win>
+    <round.draw>Manche nul</round.draw>
+    <game.win>%1 $z$sGagne le match!</game.win>
+    <game.draw>Match nul</game.draw>
+    <mode.rules>- Deux équipes\n- Essayez d'aller a la base ennemi pour récupérer le drapeau et le ramener à votre base .\n- Le joueur qui porte le drapeau est mis en surbrillance et le drapeau est marqué.\n- Vous ne pouvez capturer le drapeau ennemi que si votre drapeau est à votre base.\n- Si celui qui a le drapeau meurt, il laisse le drapeau a l'endroit précis de sa mort. Si personne ne reprend le drapeau avant quelques secondes, il retournera dans sa base. Si c'est l'ennemi qui touche le drapeau, il retournera dans sa base.\n- Le match se termine lorsque la limite de capture, de manche ou de temps est atteinte.\n- Si les deux équipes ont le même scores à la fin du temps mais qu'un joueur est porteur du drapeau ennemi, il donne la victoire a son équipe \n- Sinon c'est l'overtime qui commence: Si un joueur de chaque équipe porte le drapeau ennemi au départ de l'overtime, c'est celui qui perd le drapeau en premier qui donne la victoire a l’équipe adverse, Si personne n'a le drapeau ennemi au départ de l'overtime, c'est le premier qui touche le drapeau adverse qui donne la victoire a son équipe.</mode.rules>
+    <hint.drop>%1 pour lacher le drapeau</hint.drop>
+    <limit.score>Score</limit.score>
+    <limit.time>Temps</limit.time>
+    <limit.win>Manche</limit.win>
+</translation>

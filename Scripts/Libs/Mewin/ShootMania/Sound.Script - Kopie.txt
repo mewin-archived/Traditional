@@ -1,0 +1,36 @@
+Void InitForPlayer(CSmPlayer Player)
+{
+    declare CUILayer LayerSound for Player;
+    
+    LayerSound <=> Null;
+}
+
+Void PlaySound(CSmPlayer Player, Text Name)
+{
+    if (!Player.IsFakePlayer)
+    {
+        declare CUILayer LayerSound for Player;
+        
+        LayerSound.ManialinkPage = """<audio looping="0" play="1" hidden="1" data="file://Media/Sounds/{{{Name}}}.ogg" />{{{Now}}}""";
+    }
+}
+
+Void PlaySoundAll(Text Name)
+{
+    foreach(Player in Players)
+    {
+        PlaySound(Player, Name);
+    }
+}
+
+Void AddUILayer(CSmPlayer Player)
+{
+	declare CUILayer LayerSound for Player = Null;
+	
+	if (LayerSound == Null)
+	{
+		LayerSound <=> UIManager.UILayerCreate();
+	}
+	
+	UIManager.GetUI(Player).UILayers.add(LayerSound);
+}

@@ -1,0 +1,663 @@
+/**
+ * Basic Mode
+ */
+#Extends "Modes/ShootMania/ModeBase.Script.txt"
+
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/Color.Script.txt" as Color
+#Include "Libs/Nadeo/Layers.Script.txt" as Layers
+#Include "Libs/Nadeo/Message.Script.txt" as Message
+#Include "Libs/Nadeo/ShootMania/SM.Script.txt" as SM
+#Include "Libs/Nadeo/ShootMania/Score.Script.txt" as Scores
+#Include "Libs/Nadeo/ShootMania/ScoresTable.Script.txt" as ScoresTable
+#Include "Libs/Nadeo/ShootMania/SpawnScreen.Script.txt" as SpawnScreen
+#Include "Libs/Multilingual.Script.txt" as Lang
+#Include "Libs/Mewin/ShootMania/Multikill.Script.txt" as MultiKill
+
+#Const	CompatibleMapTypes	"SnDArena"
+#Const	Version				"2013-05-10"
+
+/* -------------------------------------- */
+// Settings
+/* -------------------------------------- */
+//Setting		Name				Value			as "Description"
+#Setting		S_Timelimit			180000			as "timelimit (in ms, 0 for no limit)"
+#Setting		S_Scorelimit		3				as "scorelimit (0 for no limit)"
+#Setting		S_DisableRespawn	True			as "disable respawn"
+#Setting		S_Bombtimer			30000			as "bomb timer (in ms)"
+#Setting		S_MarkerUpdate		3000			as "marker update delay (in ms)"
+#Setting		S_BombPlanttime		5000			as "bomb plant time (in ms)"
+#Setting		S_BombDefusetime	10000			as "bomb defuse time (in ms)"
+#Setting		S_ShotResettime		1000			as "time a player loses on hit when planting/defusing"
+
+#Const C_ImgBaseDir				"file://Media/Manialinks/Shootmania/Common/"
+
+#Const C_ModeRules "Eliminate the enemies.\nThe game ends when either the score limit or the time limit is reached or when all players of a team are eliminated and won't respawn."
+
+#Const Description  ""
+#Const PickupDelay 250
+#Const PickupDistance 2.
+
+/* -------------------------------------- */
+// Globales
+/* -------------------------------------- */
+
+declare CSmBlockSpawn[][Integer] SpawnQueue;
+declare Integer WinnerClan;
+declare Text WinnerMessage;
+declare Vec3 BombDropLocation;
+declare CSmPlayer BombCarrier;
+declare CSmBlockPole PlantPosition;
+declare Integer AttackingTeam;
+declare Integer DefuseStart;
+
+Real Distance ( Vec3 vec1, Vec3 vec2 )
+{
+	return ML::Sqrt( (vec1.X - vec2.X) * (vec1.X - vec2.X) + (vec1.Y - vec2.Y) * (vec1.Y - vec2.Y) + (vec1.Z - vec2.Z) * (vec1.Z - vec2.Z));
+}
+
+Void WinRound(Integer Clan, Text Message)
+{
+	WinnerClan = Clan;
+	WinnerMessage = Message;
+	MB_StopTurn = True;
+}
+
+Void Win(Integer Clan, Text Message)
+{
+	WinnerClan = Clan;
+	WinnerMessage = Message;
+	MB_StopMap = True;
+}
+
+Text VecToString(Vec3 vec)
+{
+	return vec.X ^ " " ^ vec.Y ^ " " ^ vec.Z;
+}
+
+Text UpdateMarkers()
+{
+	declare Vec3 BombPosition;
+	if (BombCarrier != Null)
+	{
+		BombPosition = <BombCarrier.Position.X, BombCarrier.Position.Y + 2., BombCarrier.Position.Z>;
+	}
+	else if (PlantPosition == Null)
+	{
+		BombPosition = BombDropLocation;
+	}
+	return """<marker label="Bomb" pos="{{{VecToString(BombPosition)}}}" visibility="WhenInFrustum" />""";
+}
+
+
+***InitServer***
+***
+log("");
+***
+
+***StartServer***
+***	
+/* -------------------------------------- */
+// Set mode options
+UseClans = True;
+SM::SetupDefaultVisibility();
+UIManager.UIAll.NoticesFilter_LevelToShowAsBigMessage = CUIConfig::ENoticeLevel::MatchInfo;
+Color::Load(); //?
+
+UpdateSpawns();
+
+/* -------------------------------------- */
+// Create the rules
+declare ModeName = "Search and Destroy";
+declare ModeRules = C_ModeRules;
+SpawnScreen::CreateRules(ModeName, ModeRules);
+
+/* -------------------------------------- */
+// Init scores table
+ScoresTable::Load();
+ScoresTable::SetTableWidth(190.);
+ScoresTable::Build();
+***
+
+***InitMap***
+***
+declare CSmBlockPole[]	PoleList;
+declare CSmBlockSpawn[Integer]	SpawnList;
+declare CSmBlockPole BombSpawn;
+declare Integer LastPickupCheck;
+declare Integer LastMarkerUpdate;
+***
+
+***StartMap***
+***
+/* -------------------------------------- */
+// Add bots
+//SetNbFakePlayers(5, 5);
+Lang::Init();
+MultiKill::Init(True);
+
+/* -------------------------------------- */
+// Init pole
+UIManager.UIAll.Hud3dMarkers = "";
+PoleList.clear();
+foreach (Pole in BlockPoles) {
+	if (Pole.Order == 1)
+	{
+		BombSpawn = Pole;
+	}
+	else
+	{
+		PoleList.add(Pole);
+	}
+}
+assert(BombSpawn != Null);
+
+/* -------------------------------------- */
+// Init spawn
+SpawnList.clear();
+foreach (Spawn in BlockSpawns) {
+	if (Spawn.Tag == "Spawn") SpawnList[Spawn.Order] = Spawn;
+}
+
+/* -------------------------------------- */
+// Misc init
+ScoresTable::StartMatch();
+Scores::MatchBegin();
+ClanScores[1]		= 0;
+ClanScores[2]		= 0;
+
+/* -------------------------------------- */
+// Update the rules
+ModeRules = C_ModeRules;
+SpawnScreen::CreateRules(ModeName, ModeRules);
+***
+
+***InitRound***
+***
+// declare
+MB_UseSectionRound = False;
+AttackingTeam = 1;
+***
+
+/*
+***StartRound***
+***
+***
+*/
+
+***InitTurn***
+***
+MB_UseSectionTurn = True;
+***
+
+***StartTurn***
+***
+/* -------------------------------------- */
+// Init variables
+UpdateSpawns();
+if (UseClans)
+{
+	foreach (Player in Players)
+	{
+		SetPlayerClan(Player, Player.RequestedClan);
+	}
+}
+Scores::RoundBegin();
+UIManager.UIAll.UISequence		= CUIConfig::EUISequence::Playing;
+UIManager.UIAll.BigMessageSound	= CUIConfig::EUISound::Default;
+StartTime = Now + 1000;
+if (S_Timelimit <= 0)
+{
+	EndTime = -1;
+}
+else
+{
+	EndTime = StartTime + S_Timelimit;
+}
+
+foreach(Player in Players)
+{
+	if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned)
+	{
+		if (UseClans)
+		{
+			SM::SpawnPlayer(Player, Player.RequestedClan, FindSpawn(Player.RequestedClan), Now + 1000);
+		}
+		else
+		{
+			SM::SpawnPlayer(Player, 0, FindSpawn(0), Now + 1000);
+		}
+	}
+}
+
+foreach(Player in BotPlayers)
+{
+	if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned)
+	{
+		if (UseClans)
+		{
+			SM::SpawnPlayer(Player, Player.RequestedClan, FindSpawn(Player.RequestedClan), Now + 1000);
+		}
+		else
+		{
+			SM::SpawnPlayer(Player, 0, FindSpawn(0), Now + 1000);
+		}
+	}
+}
+MultiKill::ResetSprees();
+
+BombDropLocation = BombSpawn.Position;
+foreach(Pole in PoleList)
+{
+	Pole.Captured = False;
+	Pole.Gauge.Value = 0;
+	Pole.Gauge.Speed = 0;
+	Pole.Gauge.Clan = AttackingTeam;
+}
+PlantPosition = Null;
+***
+
+***OnNewPlayer***
+***
+ScoresTable::RestoreCustomScores(Player);
+declare UI <=> UIManager.GetUI(Player);
+if(UseClans)
+{
+	SetPlayerClan(Player, Player.RequestedClan);
+}
+***
+
+***OnNewSpectator***
+***
+ScoresTable::RestoreCustomScores(Spectator);
+declare UI <=> UIManager.GetUI(Spectator);
+if (UI != Null) {
+	UI.SpectatorForcedClan		= 0;
+	UI.SpectatorForceCameraType	= 15;
+}
+if (Spectator.Score != Null) {
+	declare WaitForRespawn	for Spectator.Score = False;
+	WaitForRespawn = False;
+}
+***
+
+***PlayLoop***
+***
+/* -------------------------------------- */
+// Update lib
+Message::Loop();
+
+/* -------------------------------------- */
+// Manage events
+foreach (Event in PendingEvents) {
+	if (Event.Type == CSmModeEvent::EType::OnHit) {
+		if (BombCarrier != Null && BombCarrier == Event.Victim)
+		{
+			if (BombCarrier.BlockPole != Null)
+			{
+				BombCarrier.BlockPole.Gauge.Speed = 0;
+				if (BombCarrier.BlockPole.Gauge.Value > S_ShotResettime)
+				{
+					BombCarrier.BlockPole.Gauge.Value -= S_ShotResettime;
+				}
+				else
+				{
+					BombCarrier.BlockPole.Gauge.Value = 0;
+				}
+			}
+		}
+		if (Event.Shooter == Event.Victim) {
+			Discard(Event);
+		} else if (Event.Shooter != Null && Event.Victim != Null && Event.Shooter.CurrentClan == Event.Victim.CurrentClan)
+		{
+			Discard(Event);
+		} else {
+			declare Points = Event.Damage / 100;
+			Scores::AddPoints(Event.Shooter, Points);
+			Event.ShooterPoints = Points;
+			PassOn(Event);
+		}
+	} else if (Event.Type == CSmModeEvent::EType::OnArmorEmpty) {
+		if (Event.Victim != Null && Event.Shooter != Null) {
+			MultiKill::OnPlayerKill(Event.Shooter);
+			MultiKill::OnPlayerArmorEmpty(Event.Victim);
+		}
+		PassOn(Event);
+	} else if (Event.Type == CSmModeEvent::EType::OnPlayerRequestRespawn) {
+		if (Event.Player != Null) {
+		}
+		PassOn(Event);
+	} else if (Event.Type == CSmModeEvent::EType::OnCapture) {
+		PlantPosition = Event.BlockPole;
+		BombCarrier = Null;
+		EndTime = Now + S_Bombtimer;
+		PlantPosition.Gauge.Max = S_BombDefusetime;
+		PlantPosition.Gauge.Value = S_BombDefusetime;
+		PassOn(Event);
+	} else {
+		PassOn(Event);
+	}
+}
+
+if (S_DisableRespawn)
+{
+	for (Clan, 1, 2)
+	{
+		if (ClansNbPlayersAlive[Clan] < 1)
+		{
+			Win(3 - Clan, Teams[Clan - 1].ColorizedName ^ " $z has been eliminated.");
+		}
+	}
+}
+
+SM::UnspawnPlayersChangingClan();
+
+foreach(Player in Players)
+{
+	if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned && !S_DisableRespawn)
+	{
+		MultiKill::ResetSpree(Player);
+		if (UseClans)
+		{
+			SM::SpawnPlayer(Player, Player.RequestedClan, FindSpawn(Player.RequestedClan), Now + 1000);
+		}
+		else
+		{
+			SM::SpawnPlayer(Player, 0, FindSpawn(0), Now + 1000);
+		}
+	}
+}
+
+foreach(Player in BotPlayers)
+{
+	if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned && !S_DisableRespawn)
+	{
+		MultiKill::ResetSpree(Player);
+		if (UseClans)
+		{
+			SM::SpawnPlayer(Player, Player.RequestedClan, FindSpawn(Player.RequestedClan), Now + 1000);
+		}
+		else
+		{
+			SM::SpawnPlayer(Player, 0, FindSpawn(0), Now + 1000);
+		}
+	}
+}
+
+if (Now >= EndTime)
+{
+	declare Integer RoundWinner;
+	declare Text Message;
+	if (PlantPosition != Null)
+	{
+		RoundWinner = AttackingTeam;
+		Message = "the bomb detonated";
+	}
+	else
+	{
+		RoundWinner = 3 - AttackingTeam;
+		Message = "time limit reached";
+	}
+	WinRound(RoundWinner, Message);
+}
+
+if (BombCarrier != Null && BombCarrier.SpawnStatus != CSmPlayer::ESpawnStatus::Spawned)
+{
+	BombDropLocation = BombCarrier.Position;
+	BombCarrier = Null;
+}
+
+if (BombCarrier == Null && PlantPosition == Null && LastPickupCheck + PickupDelay < Now)
+{
+	LastPickupCheck = Now;
+	foreach (Player in Players)
+	{
+		if (Player.CurrentClan == AttackingTeam && Distance(Player.Position, BombDropLocation) <= PickupDistance)
+		{
+			BombCarrier = Player;
+			break;
+		}
+	}
+	foreach (Player in BotPlayers)
+	{
+		if (Player.CurrentClan == AttackingTeam && Distance(Player.Position, BombDropLocation) <= PickupDistance)
+		{
+			BombCarrier = Player;
+			break;
+		}
+	}
+}
+
+if (LastMarkerUpdate + S_MarkerUpdate < Now)
+{
+	LastMarkerUpdate = Now;
+	UIManager.UIAll.Hud3dMarkers = UpdateMarkers();
+}
+
+if (PlantPosition == Null)
+{
+	declare CarrierOnPole = False;
+	foreach(Pole in PoleList)
+	{
+		declare PlayerFound = False;
+		foreach(PlayerId in Pole.Sector.PlayersIds)
+		{
+			if (BombCarrier != Null && BombCarrier.Id == PlayerId)
+			{
+				PlayerFound = True;
+				break;
+			}
+		}
+		if (PlayerFound)
+		{
+			CarrierOnPole = True;
+			Pole.Gauge.Max = S_BombPlanttime;
+			Pole.Gauge.Speed = 1;
+			break;
+		}
+		else
+		{
+			Pole.Gauge.Value = 0;
+			Pole.Gauge.Speed = 0;
+		}
+	}
+}
+else
+{
+	declare CSmPlayer DefusingPlayer;
+	declare CanDefuse = True;
+	foreach(PlayerId in PlantPosition.Sector.PlayersIds)
+	{
+		declare Player = Players[PlayerId];
+		if (Player.CurrentClan == AttackingTeam)
+		{
+			CanDefuse = False;
+			break;
+		}
+		else if (DefusingPlayer == Null)
+		{
+			DefusingPlayer = Player;
+		}
+	}
+	if (CanDefuse && DefusingPlayer != Null)
+	{
+		PlantPosition.Captured = False;
+		PlantPosition.Gauge.Speed = -1;
+		if (PlantPosition.Gauge.Value == 0)
+		{
+			WinRound(3 - AttackingTeam, "the bomb has been defused");
+			EndTime = -1;
+		}
+	}
+	else
+	{
+		PlantPosition.Captured = True;
+		PlantPosition.Gauge.Speed = 0;
+		PlantPosition.Gauge.Value = PlantPosition.Gauge.Max;
+	}
+}
+
+/* -------------------------------------- */
+
+//MB_StopTurn = True;
+***
+
+***EndTurn***
+***
+/* -------------------------------------- */
+// Unspawn players
+sleep(500);
+SM::UnspawnAllPlayers();
+StartTime = -1;
+
+/* -------------------------------------- */
+// Clean UI
+Message::CleanAllMessages();
+
+Scores::RoundEnd();
+
+/* -------------------------------------- */
+// Display result
+UIManager.UIAll.UISequence				= CUIConfig::EUISequence::EndRound;
+UIManager.UIAll.BigMessageSound			= CUIConfig::EUISound::EndRound;
+UIManager.UIAll.ScoreTableVisibility	= CUIConfig::EVisibility::ForcedVisible;
+UIManager.UIAll.ScoreTableVisibility	= CUIConfig::EVisibility::Normal;
+UIManager.UIAll.BigMessage = Teams[WinnerClan - 1].ColorizedName ^ "$z wins";
+UIManager.UIAll.BigMessage ^= ": " ^ WinnerMessage;
+UIManager.UIAll.StatusMessage			= "";
+
+/* -------------------------------------- */
+// Go to next round
+ClanScores[WinnerClan] += 1;
+if (ClanScores[WinnerClan] > S_Scorelimit)
+{
+	Win(WinnerClan, "scorelimit reached");
+}
+sleep(5000);
+UIManager.UIAll.BigMessage = "";
+AttackingTeam = 3 - AttackingTeam;
+//MB_StopRound = True;
+***
+
+***EndRound***
+***
+/* -------------------------------------- */
+// Map victory
+MB_StopMap		= True;
+***
+
+***EndMap***
+***
+/* -------------------------------------- */
+// Update map scores
+ScoresTable::EndMatch();
+Scores::MatchEnd();
+UIManager.UIAll.BigMessage		= "";
+UIManager.UIAll.StatusMessage	= "";
+
+/* -------------------------------------- */
+// Display result
+UIManager.UIAll.UISequence				= CUIConfig::EUISequence::EndRound;
+UIManager.UIAll.BigMessageSound			= CUIConfig::EUISound::EndRound;
+UIManager.UIAll.ScoreTableVisibility	= CUIConfig::EVisibility::ForcedVisible;
+if (WinnerClan == 0)
+{
+	UIManager.UIAll.BigMessage = _("|Match|Draw");
+}
+else
+{
+	UIManager.UIAll.BigMessage = Teams[WinnerClan - 1].ColorizedName ^ " $z wins";
+}
+UIManager.UIAll.BigMessage ^= ": " ^ WinnerMessage;
+sleep(5000);
+UIManager.UIAll.UISequence				= CUIConfig::EUISequence::Podium;
+sleep(1000);
+UIManager.UIAll.ScoreTableVisibility	= CUIConfig::EVisibility::Normal;
+UIManager.UIAll.BigMessage				= "";
+***
+	
+***EndServer***
+***
+/* -------------------------------------- */
+// Clean the UI
+SpawnScreen::DestroyRules();
+//SpawnScreen::DestroyMapInfo();
+UIManager.ResetAll();
+UIManager.UILayerDestroyAll();
+
+/* -------------------------------------- */
+// Stop the library
+Color::Unload();
+ScoresTable::Unload();
+***
+
+Void UpdateSpawns(Integer Clan)
+{
+	foreach(Spawn in BlockSpawns)
+	{
+		if (!UseClans)
+		{
+			SpawnQueue[0].add(Spawn);
+		}
+		else if(Spawn.Order == Clan)
+		{
+			SpawnQueue[Spawn.Order].add(Spawn);
+		}
+	}
+}
+
+Void UpdateSpawns()
+{
+	SpawnQueue = [0=>CSmBlockSpawn[], 1=>CSmBlockSpawn[], 2=>CSmBlockSpawn[]];
+	foreach(Spawn in BlockSpawns)
+	{
+		if (!UseClans)
+		{
+			SpawnQueue[0].add(Spawn);
+		}
+		else if (AttackingTeam == 1)
+		{
+			Spawn.Base.IsActive = True;
+			Spawn.Base.Clan = Spawn.Order;
+			SpawnQueue[Spawn.Order].add(Spawn);
+		}
+		else
+		{
+			Spawn.Base.IsActive = True;
+			Spawn.Base.Clan = 3 - Spawn.Order;
+			SpawnQueue[3 - Spawn.Order].add(Spawn);
+		}
+	}
+}
+
+CSmBlockSpawn FindSpawn(Integer Clan)
+{
+	declare CSmBlockSpawn[] Spawns;
+	if (UseClans)
+	{
+		if (SpawnQueue[Clan].count < 1)
+		{
+			UpdateSpawns(Clan);
+		}
+		Spawns = SpawnQueue[Clan];
+	}
+	else
+	{
+		if (SpawnQueue[0].count < 1)
+		{
+			UpdateSpawns();
+		}
+		Spawns = SpawnQueue[0];
+	}
+	declare CSmBlockSpawn Spawn = Spawns[0];
+	if (UseClans)
+	{
+		declare ADV = SpawnQueue[Clan].remove(Spawn);
+	}
+	else
+	{
+		declare ADV = SpawnQueue[0].remove(Spawn);
+	}
+	return Spawn;
+}

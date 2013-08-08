@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<translation lang="de">
+    <flag.capture>%1 $z$s hat die %2 $z$sFlagge erobert</flag.capture>
+	<flag.take>%1 $z$s hat die %2 $z$sFlagge genommen</flag.take>
+	<flag.drop>%1 $z$s hat die %2 $z$sFlagge fallen gelassen</flag.drop>
+	<flag.return>%1 $z$s hat die %2 $z$sFlagge zurückgebracht</flag.return>
+	<flag.reset>Die %1 $s$zFlagge wurde zurückgesetzt</flag.reset>
+    <game.overtime>Overtime</game.overtime>
+    <top.damages>Top 5 Punkte</top.damages>
+    <top.captures>Top 5 Eroberungen</top.captures>
+    <top.returns>Top 5 Rückgaben</top.returns>
+    <team.name1>$00fBlau</team.name1>
+    <team.name2>$f00Rot</team.name2>
+    <round.win>%1 $z$shat die Runde gewonnen!</round.win>
+    <round.draw>Unentschieden</round.draw>
+    <game.win>%1 $z$shat das Spiel gewonnen!</game.win>
+    <game.draw>Unentschieden</game.draw>
+    <game.leaveWarning>Kehre zurück aufs Schlachtfeld! ($f00%1$z s bis zur Eliminierung)</game.leaveWarning>
+    <mode.rules>Zwei Teams\n\n- Versuche zur gegnerischen Flagge zu gelangen und sie in deine Basis zu bringen.\n- Der Spieler mit der Flagge ist hervorgehoben und die Flagge ist markiert.\n- Du kannst die Flagge nur einnehmen, wenn deine Flagge in der Basis ist.\n- Wenn der Flaggenträger stirbt, lässt er die Flagge an seiner Position fallen.\n- Sie wird nach ein paar Sekunden zurückgesetzt.\n- Das Spiel endet, wenn das Punkte- oder das Zeitlimit erreicht ist.\n- Haben beide Teams am Ende der Runde die gleiche Punktzahl, wird der Sieger so ermittelt:\n  - Wenn zur Zeit nur ein Team die gegnerische Flagge hat, gewinnt dieses.\n  - Sonst startet die Overtime. Während der Overtime gewinnt das Team, das sein Ziel zuerst erreicht (Die eigene Basis, wenn man die Flagge hat, sonst die gegnerische) oder wenn der Flaggenträger eliminiert wird.</mode.rules>
+    <hint.drop>Drücke %1, um die Flagge fallen zu lassen</hint.drop>
+    <limit.score>Punktelimit</limit.score>
+    <limit.time>Zeitlimit</limit.time>
+    <limit.win>Runden zum Sieg</limit.win>
+    <powerup.spawnProtection>Spawn Schutz</powerup.spawnProtection>
+    <powerup.doubleDamage>Doppelschaden</powerup.doubleDamage>
+</translation>

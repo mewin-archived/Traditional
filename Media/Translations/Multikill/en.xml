@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<translation lang="en">
+    <multi.public2>%1 $z $shas scored a doublekill!</multi.public2>
+	<multi.public3>%1 $z $shas scored a multikill!</multi.public3>
+	<multi.public4>%1 $z $shas scored a megakill!</multi.public4>
+	<multi.public5>%1 $z $shas scored an ultrakill!</multi.public5>
+	<multi.public6>%1 $z $shas scored a monsterkill!</multi.public6>
+	<multi.private2>Doublekill!</multi.private2>
+	<multi.private3>Multikill!</multi.private3>
+	<multi.private4>Megakill!</multi.private4>
+	<multi.private5>Ultrakill!</multi.private5>
+	<multi.private6>Monsterkill!</multi.private6>
+	<spree.public5>%1 $z $sis on a killing spree.</spree.public5>
+	<spree.public10>%1 $z $sis on a rampage.</spree.public10>
+	<spree.public15>%1 $z $sis dominating!</spree.public15>
+	<spree.public20>%1 $z $sis unstoppable!</spree.public20>
+	<spree.public25>%1 $z $sis godlike!</spree.public25>
+	<spree.publicMore>%1  $z $shas scored %2 kills in a row!</spree.publicMore>
+	<spree.private5>Killing Spree!</spree.private5>
+	<spree.private10>Rampage!</spree.private10>
+	<spree.private15>Dominating!</spree.private15>
+	<spree.private20>Unstoppable!</spree.private20>
+	<spree.private25>GODLIKE!</spree.private25>
+	<special.headshot>Headshot!</special.headshot>
+	<special.headhunter>Head Hunter!</special.headhunter>
+	<special.firstbloodPrivate>First Blood!</special.firstbloodPrivate>
+	<special.firstbloodPublic>%1 $z$shas drawn first blood!</special.firstbloodPublic>
+</translation>
