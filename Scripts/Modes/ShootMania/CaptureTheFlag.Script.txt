@@ -84,8 +84,8 @@
 											6 => 2.		//DoubleDamage (def 2.)
 										]
 /// ------ Informational ------ ///
-#Const		VersionNum					"2.0-a0.1"
-#Const		Version						"2013-08-11"
+#Const		VersionNum					"2.0-a0.2"
+#Const		Version						"2013-08-10"
 /// ------ Model Paths -------- ///
 #Const		RedFlagPath					"CTF/RedFlag.Item.gbx"
 #Const		BlueFlagPath				"CTF/BlueFlag.Item.gbx"
@@ -107,6 +107,13 @@ SpawnScreen::SetModeName("Capture The Flag");
 SpawnScreen::AddSubsection("Rules", ModeRules, 0.);
 SpawnScreen::CreatePrettyRules();
 SpawnScreen::CreateScores();
+***
+
+***NewPlayer***
+***
+Tabs::UseTabs(UI, "ScoresTab");
+Tabs::AlwaysShowScore(UI, True);
+ScoresTable::RestoreCustomScores(Player);
 ***
 declare Ident SettingsLayerId;
 declare Ident[][Integer] G_BlockSpawnQueue;	///< A list of spawn points to use
@@ -725,16 +732,9 @@ Text GetMLEvents(CUser User)
 						
 						foreach(Event in PendingEvents)
 						{
-							switch(Event.Type)
+							if (Event.Type == CMlEvent::Type::KeyPress && Event.CharPressed == "2555904") //F3
 							{
-								case CMlEvent::Type::KeyPress:
-								{
-									if (Event.CharPressed == "2555904") //F3
-									{
-										DropFlag = True;
-									}
-									break ;
-								}
+								DropFlag = True;
 							}
 						}
 					}
@@ -1131,13 +1131,13 @@ Void TakeFlag(CSmPlayer Player, Boolean GetScore)
 		ScoresTable::SetCustom2(Player, TextLib::ToText(AtkScore));
 		if (!Player.IsBot)
 		{
-			Top::SetRecord(Player, "Atk", TextLib::ToText(AtkScore), AtkScore);
+			Top::SetRecord(Player, "Atk", TextLib::ToText(AtkScore), -AtkScore);
 		}
 	}
 	Lang::SendNotice("flag.take", CUIConfig::ENoticeLevel::MatchInfo, 
 	Player.User, CUIConfig::EAvatarVariant::Default, 
 	CUIConfig::EUISound::Silence, 0, Player.Name, Teams[Clan - 1].ColorizedName
-	); //old sound: Capture
+	);
 	if (!Player.IsBot)
 	{
 		declare netwrite HasFlag for UIManager.GetUI(Player) = False;
@@ -1383,12 +1383,6 @@ main()
 			}
 		}
 		
-		
-		if (Debug)
-		{
-			//Users_DestroyAllFakes();
-		}
-		
 		if (WarmUpDuration > 0)
 		{
 			DoWarmUp(spawnBlocks[1], spawnBlocks[2]);
@@ -1415,12 +1409,20 @@ main()
 		}
 		
 		while( Victory::NoMatchWinner() && !MatchEndRequested ) 
-		{	
+		{
 			declare LastFlagTick = Now;
 			foreach (Player in Players)
 			{
-				Tabs::UseTabs(UIManager.GetUI(Player), "ScoresTab");
-				Tabs::AlwaysShowScore(UIManager.GetUI(Player), True);
+				declare UI = UIManager.GetUI(Player);
+					
+				if (UI != Null)
+				{
+					Tabs::UseTabs(UI, "ScoresTab");
+					Tabs::AlwaysShowScore(UI, True);
+					declare netwrite Boolean HasFlag for UI;
+					
+					HasFlag = False;
+				}
 			}
 			ScoresTable::StartMatch();
 			XmlRpc::BeginRound(Round);
@@ -1433,6 +1435,7 @@ main()
 			declare LastTimelimit = TimeLimit;
 			Captures = [ 1 => 0, 2 => 0];
 			UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
+			UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
 
 			Score::RoundBegin();
 			Airshot::RoundBegin();
@@ -1488,48 +1491,6 @@ main()
 				}
 			}
 			
-			foreach (Spectator in Spectators)
-			{
-				declare NewPlayer for Spectator = True;
-				declare NewSpectator for Spectator = True;
-				
-				if (NewSpectator)
-				{
-					NewPlayer = True;
-					NewSpectator = False;
-				}
-			}
-			
-			foreach (Player in Players)
-			{
-				declare UI <=> UIManager.GetUI(Player);
-				declare NewPlayer for Player = True;
-				declare NewSpectator for Player = True;
-				
-				if (NewPlayer)
-				{
-					Tabs::UseTabs(UI, "ScoresTab");
-					Tabs::AlwaysShowScore(UI, True);
-					NewPlayer = False;
-					NewSpectator = True;
-					ScoresTable::RestoreCustomScores(Player);
-				}
-				
-				if (UI != Null)
-				{
-					declare netwrite Boolean HasFlag for UI;
-					
-					HasFlag = False;
-				}
-			}
-			
-			foreach(Player in Spectators)
-			{
-				declare ScoresRestored for Player = False;
-				
-				ScoresRestored = False;
-			}
-			
 			foreach (Clan=>Pole in Poles)
 			{
 				Pole.Gauge.Max = 100;
@@ -1539,9 +1500,37 @@ main()
 				
 				FlagObjects[Clan].SetPositionAndVel(Pole.Position, <0., 0., 0.>);
 			}
-			
+			declare Ident[] InitedPlayers;
 			while ( Victory::NoRoundWinner() && !MatchEndRequested )
 			{
+				
+				foreach (Player in Players)
+				{
+					declare UI <=> UIManager.GetUI(Player);
+					declare NewPlayer for Player = True;
+					declare NewSpectator for Player = True;
+					
+					if (NewPlayer)
+					{
+						+++NewPlayer+++
+						NewPlayer = False;
+						NewSpectator = True;
+					}
+				}
+			
+				foreach(Player in Spectators)
+				{
+					declare NewPlayer for Player = True;
+					declare NewSpectator for Player = True;
+					
+					if (NewSpectator)
+					{
+						+++NewSpectator+++
+						NewPlayer = True;
+						NewSpectator = False;
+					}
+				}
+				
 				if (LastTimelimit != TimeLimit)
 				{
 					if(TimeLimit == -1)
@@ -1640,7 +1629,7 @@ main()
 							
 							if (!Event.Shooter.IsBot)
 							{
-								Top::SetRecord(Event.Shooter, "Hit", TextLib::ToText(HitScore), HitScore);
+								Top::SetRecord(Event.Shooter, "Hit", TextLib::ToText(HitScore), -HitScore);
 							}
 							PassOn(Event);
 						}
@@ -1726,7 +1715,7 @@ main()
 								ScoresTable::SetCustom3(Event.Player, TextLib::ToText(DefScore));
 								if (!Event.Player.IsBot)
 								{
-									Top::SetRecord(Event.Player, "Def", TextLib::ToText(DefScore), DefScore);
+									Top::SetRecord(Event.Player, "Def", TextLib::ToText(DefScore), -DefScore);
 								}
 								Poles[Clan].Gauge.Value = 100;
 								Poles[Clan].Captured = True;
@@ -1937,7 +1926,7 @@ main()
 								LockedTill = Now + 100;
 								if (!Player.IsBot)
 								{
-									Top::SetRecord(Player, "Atk", TextLib::ToText(AtkScore), AtkScore);
+									Top::SetRecord(Player, "Atk", TextLib::ToText(AtkScore), -AtkScore);
 									declare netwrite HasFlag for UIManager.GetUI(Player) = False;
 									HasFlag = False;
 								}
@@ -2040,6 +2029,14 @@ main()
 						LayerEvents = Null;
 					}
 					
+					foreach (Player in Spectators)
+					{
+						if (WeaponMode >= 6)
+						{
+							Pickup::UpdateML(Player);
+						}
+					}
+					
 					foreach(Player in Players)
 					{
 						if (WeaponMode >= 6)
@@ -2057,19 +2054,8 @@ main()
 						if (!Player.IsFakePlayer)
 						{
 							declare PlayerUI <=> UIManager.GetUI(Player);
-							/*declare CUILayer LayerSpawnScreen for Player;
-							if (LayerSpawnScreen == Null) {
-								LayerSpawnScreen <=> UIManager.UILayerCreate();
-								LayerSpawnScreen.Type = CUILayer::EUILayerType::ScreenIn3d;
-								PlayerUI.UILayers.add(LayerSpawnScreen);
-							}
-							LayerSpawnScreen.ManialinkPage = UpdateLayerSpawnScreen(Player.User);
-							
-							
-							PlayerUI.UILayers.add(LayerSpawnScreen);*/
 							PlayerUI.UILayers.add(LayerEvents);
 							Sound::AddUILayer(Player);
-							//PowerUp::AddUILayer(Player);
 						}
 					}
 					
@@ -2150,7 +2136,6 @@ main()
 			}
 
 			sleep(6000);
-			UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
 						
 			+++RoundEnd+++	
 			Score::RoundEnd();
@@ -2166,7 +2151,6 @@ main()
 		XmlRpc::EndMap(NextMapIndex);				
 			
 		Users_DestroyAllFakes();
-		UIManager.ResetAll();
 		ScoresTable::EndMatch();
 		UIManager.UIAll.UISequence = CUIConfig::EUISequence::Outro;
 		
@@ -2227,13 +2211,14 @@ main()
 		UIManager.UIAll.BigMessage = "";
 		UIManager.UIAll.UISequence = CUIConfig::EUISequence::Podium;				
 		
-		sleep(10*1000);
+		
+		sleep(5000);
 
 		UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
-		UIManager.UIAll.UILayers.clear();
 
 		sleep(1*1000);
 			
+		UIManager.UIAll.UILayers.clear();
 		MatchEndRequested = False;
 
 		UnloadMap();

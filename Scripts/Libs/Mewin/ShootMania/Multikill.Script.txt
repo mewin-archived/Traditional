@@ -126,7 +126,7 @@ Void OnPlayerKill(CSmPlayer Player)
 		if (MultiKill > RecordMulti)
 		{
 			RecordMulti = MultiKill;
-			Top::SetRecord(Player, "Multi", TextLib::ToText(RecordMulti), RecordMulti);
+			Top::SetRecord(Player, "Multi", TextLib::ToText(RecordMulti), -RecordMulti);
 		}
 	}
 	if (KillingSpree % 5 == 0 && KillingSpree <= 25)
@@ -148,7 +148,7 @@ Void OnPlayerKill(CSmPlayer Player)
 	if (KillingSpree > RecordSpree)
 	{
 		RecordSpree = KillingSpree;
-		Top::SetRecord(Player, "Spree", TextLib::ToText(RecordSpree), RecordSpree);
+		Top::SetRecord(Player, "Spree", TextLib::ToText(RecordSpree), -RecordSpree);
 	}
 }
 
@@ -200,7 +200,7 @@ Void OnHeadShot(CSmPlayer Player)
 	//Top
 	declare AllHeadShots for Player = 0;
 	AllHeadShots += 1;
-	Top::SetRecord(Player, "HeadShot", TextLib::ToText(AllHeadShots), AllHeadShots);
+	Top::SetRecord(Player, "HeadShot", TextLib::ToText(AllHeadShots), -AllHeadShots);
 }
 
 Real Skalar(Vec3 _Vec1, Vec3 _Vec2)

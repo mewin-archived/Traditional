@@ -50,12 +50,18 @@ Void PreCacheSoundsForPlayer(CSmPlayer Player)
 
 Void AddUILayer(CSmPlayer Player)
 {
-	declare CUILayer LayerSound for Player = Null;
+	declare CUILayer LayerSound for Player;
+	declare LayerSoundId for Player = NullId;
 	
-	if (LayerSound == Null)
+	if (LayerSoundId == NullId || !UIManager.GetUI(Player).UILayers.existskey(LayerSoundId))
 	{
 		LayerSound <=> UIManager.UILayerCreate();
+		LayerSoundId = LayerSound.Id;
 		PreCacheSoundsForPlayer(Player);
+	}
+	else
+	{
+		LayerSound = UIManager.GetUI(Player).UILayers[LayerSoundId];
 	}
 	
 	UIManager.GetUI(Player).UILayers.add(LayerSound);
