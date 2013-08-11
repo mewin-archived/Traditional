@@ -72,6 +72,7 @@
 #Const		Debug						False
 #Const		AdminLogins					[""] //allow these users to access the ctf admin panel
 #Const		BotUpdateInterval			200
+#Const		FlagUpdateInterval			5
 #Const		BotStuckKillTime			5000
 #Const		DoubleDamageTime			450000
 #Const		RespawnModifier				[	
@@ -83,8 +84,8 @@
 											6 => 2.		//DoubleDamage (def 2.)
 										]
 /// ------ Informational ------ ///
-#Const		VersionNum					"2.0"
-#Const		Version						"2013-08-10"
+#Const		VersionNum					"2.0-a0.1"
+#Const		Version						"2013-08-11"
 /// ------ Model Paths -------- ///
 #Const		RedFlagPath					"CTF/RedFlag.Item.gbx"
 #Const		BlueFlagPath				"CTF/BlueFlag.Item.gbx"
@@ -121,13 +122,26 @@ declare Ident[Integer] PickupItems;
 declare CSmPlayer[] BotPlayers;
 declare Integer[Integer] BotCount;
 
+Void UpdatePlayerVelocity(CSmPlayer Player)
+{
+	if (Player.SpawnStatus != CSmPlayer::ESpawnStatus::Spawned) return;
+	declare LastPos for Player = Player.Position;
+	declare Vec3 Velocity for Player;
+	declare LastUpdate for Player = Now;
+	
+	Velocity = (Player.Position - LastPos) * ((Now - LastUpdate) / 10000.);
+	LastPos = Player.Position;
+}
+
 Void UpdateFlagPositions()
 {
 	for (Clan, 1, 2)
 	{
 		if (FlagCarrier[Clan] != NullId)
 		{
-			FlagObjects[3 - Clan].SetPosition(AllPlayers[FlagCarrier[Clan]].Position + <0., 1., 0.>);
+			UpdatePlayerVelocity(AllPlayers[FlagCarrier[Clan]]);
+			declare Velocity for AllPlayers[FlagCarrier[Clan]] = <0., 0., 0.>;
+			FlagObjects[3 - Clan].SetPositionAndVel(AllPlayers[FlagCarrier[Clan]].Position + <0., 1., 0.>, Velocity);
 		}
 	}
 }
@@ -1076,6 +1090,7 @@ Void DropFlag(CSmPlayer Player)
 	}
 	
 	declare Integer LockedTill for FlagObjects[Clan];
+	declare Vec3 Velocity for Player;
 	
 	LockedTill = Now + 100;
 	
@@ -1088,7 +1103,7 @@ Void DropFlag(CSmPlayer Player)
 	CUIConfig::EUISound::Silence, 0, Player.Name, Teams[2 - Clan].ColorizedName
 	);
 	Sound::PlaySoundAll("Flag.Drop." ^ Player.CurrentClan);
-	FlagObjects[3 - Clan].SetPositionAndVel(Player.Position + <0., 1., 0.>, <0., 0., 0.>);
+	FlagObjects[3 - Clan].SetPositionAndVel(Player.Position + <0., 1., 0.>, Velocity * 0.5);
 	
 	if (Player.IsBot)
 	{
@@ -1401,6 +1416,7 @@ main()
 		
 		while( Victory::NoMatchWinner() && !MatchEndRequested ) 
 		{	
+			declare LastFlagTick = Now;
 			foreach (Player in Players)
 			{
 				Tabs::UseTabs(UIManager.GetUI(Player), "ScoresTab");
@@ -1521,7 +1537,7 @@ main()
 				Pole.Gauge.Clan = Clan;
 				Pole.Captured = True;
 				
-				FlagObjects[Clan].SetPosition(Pole.Position);
+				FlagObjects[Clan].SetPositionAndVel(Pole.Position, <0., 0., 0.>);
 			}
 			
 			while ( Victory::NoRoundWinner() && !MatchEndRequested )
@@ -1674,7 +1690,7 @@ main()
 							Event.Victim.User, CUIConfig::EAvatarVariant::Default, 
 							CUIConfig::EUISound::Capture, 0, Event.Victim.Name, Teams[2 - Event.Victim.CurrentClan].ColorizedName
 							);
-							FlagObjects[3 - Event.Victim.CurrentClan].SetPosition(Poles[3 - Event.Victim.CurrentClan].Position);
+							FlagObjects[3 - Event.Victim.CurrentClan].SetPositionAndVel(Poles[3 - Event.Victim.CurrentClan].Position, <0., 0., 0.>);
 						}
 						else if(Event.Victim != Null)
 						{
@@ -1720,7 +1736,7 @@ main()
 								Event.Player.User, CUIConfig::EAvatarVariant::Default, 
 								CUIConfig::EUISound::Warning, 0, Event.Player.Name, Teams[Clan - 1].ColorizedName
 								);
-								Event.Object.SetPosition(Poles[Clan].Position);
+								Event.Object.SetPositionAndVel(Poles[Clan].Position, <0., 0., 0.>);
 								Sound::PlaySoundAll("""Flag.Return.{{{3 - Clan}}}""");
 							}
 							else if (FlagCarrier[3 - Clan] == NullId && Event.Player.CurrentClan != Clan)
@@ -1782,8 +1798,11 @@ main()
 				
 				}
 				
-				
-				UpdateFlagPositions();
+				if (Now - LastFlagTick > FlagUpdateInterval)
+				{
+					UpdateFlagPositions();
+					LastFlagTick = Now;
+				}
 				if (LastBotUpdate + BotUpdateInterval < Now)
 				{
 					UpdateBots();
@@ -1834,7 +1853,7 @@ main()
 						);
 						
 						FlagCarrier[Clan] = NullId;
-						FlagObjects[3 - Clan].SetPosition(Poles[3 - Clan].Position);
+						FlagObjects[3 - Clan].SetPositionAndVel(Poles[3 - Clan].Position, <0., 0., 0.>);
 					}
 					
 					if(FlagDropTimes[Clan] > 0 && FlagDropTimes[Clan] + FlagResetTime <= Now)
@@ -1847,7 +1866,7 @@ main()
 						Null, CUIConfig::EAvatarVariant::Default, 
 						CUIConfig::EUISound::Warning, 0, Teams[Clan - 1].ColorizedName, ""
 						);
-						FlagObjects[Clan].SetPosition(Poles[Clan].Position);
+						FlagObjects[Clan].SetPositionAndVel(Poles[Clan].Position, <0., 0., 0.>);
 					}
 					/*else if(FlagDropTimes[Clan] > 0)
 					{
@@ -1929,7 +1948,7 @@ main()
 									Victory::SetRoundWinnerIfNoWinner(Clan);
 									break;
 								}
-								FlagObjects[3 - Clan].SetPosition(Poles[3 - Clan].Position);
+								FlagObjects[3 - Clan].SetPositionAndVel(Poles[3 - Clan].Position, <0., 0., 0.>);
 								FlagCarrier[Clan] = NullId;
 								Poles[3 - Clan].Gauge.Value = 100;
 								Poles[3 - Clan].Captured = True;
