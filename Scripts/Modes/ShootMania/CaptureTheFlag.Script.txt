@@ -10,8 +10,11 @@
 #Include "Libs/Nadeo/ShootMania/Airshot.Script.txt" as Airshot
 #Include "Libs/Nadeo/ShootMania/WarmUpSimple.Script.txt" as WarmUp
 #Include "Libs/Nadeo/ShootMania/XmlRpc.Script.txt" as XmlRpc
-#Include "Libs/Nadeo/ShootMania/ScoresTable.Script.txt" as ScoresTable
+#Include "Libs/Nadeo/Top2.Script.txt" as Top
+#Include "Libs/Nadeo/TabsServer.Script.txt" as Tabs
 
+#Include "Libs/Nadeo/ShootMania/ScoresTable.Script.txt" as ScoresTable
+#Include "Libs/Nadeo/ShootMania/SpawnScreen.Script.txt" as SpawnScreen
 #Include "Libs/Mewin/ShootMania/Multikill.Script.txt" as Multikill
 #Include "Libs/Mewin/ShootMania/Sound.Script.txt" as Sound
 #Include "Libs/Mewin/Common/Lang.Script.txt" as Lang
@@ -29,8 +32,8 @@
 #Setting	ItemRespawnTime				60000			as "item respawn time"
 #Setting	KillLeavers					True			as "kill map leavers"
 // Scores
-#Setting	TakeScore					1				as "score for grabbing the enemy flag"
-#Setting	CaptureScore				4				as "score for capturing the enemy flag"
+#Setting	TakeScore					4				as "score for grabbing the enemy flag"
+#Setting	CaptureScore				6				as "score for capturing the enemy flag"
 #Setting	ReturnScore					5				as "score for returning the own flag"
 #Setting	KillScore					1				as "score for hit"
 // Weapons & Armor
@@ -45,7 +48,7 @@
 
 // ------- Additional Settings - //
 #Const		SelfDamage					False			//damage yourself (i.e. with nucleus)
-#Const		UITickPeriod				200				//period for ui ticks -> higher values lower cpu usage
+#Const		UITickPeriod				100				//period for ui ticks -> higher values lower cpu usage
 #Const		RespawnTime					6001			//respawn time (in ms; min. 6001)
 #Const		AutoBalance					True
 #Const		EnableMultiLang				True			//enable multiple languages
@@ -65,9 +68,9 @@
 #Const		NucleusGainFactor			0.75			//... for nucleus
 #Const		ArrowGainFactor				1.				//... for arrow
 
-// ------- Constants ----------- // Do not modify!
-#Const		Debug						True
-#Const		AdminLogins					["mewin"] //allow these users to access the ctf admin panel
+// ------- Constants ----------- // Do not modify..., ok, you may ;)
+#Const		Debug						False
+#Const		AdminLogins					[""] //allow these users to access the ctf admin panel
 #Const		BotUpdateInterval			200
 #Const		BotStuckKillTime			5000
 #Const		DoubleDamageTime			450000
@@ -81,21 +84,10 @@
 										]
 /// ------ Informational ------ ///
 #Const		VersionNum					"2.0"
-#Const		Version						"2013-08-01"
+#Const		Version						"2013-08-10"
 /// ------ Model Paths -------- ///
 #Const		RedFlagPath					"CTF/RedFlag.Item.gbx"
 #Const		BlueFlagPath				"CTF/BlueFlag.Item.gbx"
-#Const		RocketItemPath				"SMCommon/Pickups/Rocket.Item.gbx"
-#Const		LaserItemPath				"SMCommon/Pickups/Laser.Item.gbx"
-#Const		NucleusItemPath				"SMCommon/Pickups/Nucleus.Item.gbx"
-#Const		ArrowItemPath				"SMCommon/Pickups/Arrow.Item.gbx"
-#Const		ArmorItemPath				"SMCommon/Pickups/Armor.Item.gbx"
-#Const		DoubleDamageItemPath		"DoubleDamage.Item.gbx"
-***UIPlayer***
-***
-UI.BigMessageSound = CUIConfig::EUISound::Notice;
-UI.BigMessage = Airshot::Message(Player);
-***
 
 ***EndTime***
 ***
@@ -109,7 +101,13 @@ if(TimeLimit > -1)
 ***
 declare ModeName = "Capture the Flag";
 declare ModeRules = "Two teams\n\n- Try to get to the enemy pole to grab the flag and bring it back to your flag.\n- The player who carries the flag is highlighted and the flag is marked.\n- You can only return the flag if your flag is at your base.\n- If the one who has the flag dies, he drops the flag at his position.\n- It is reset after some seconds.\n- Match ends when either the score limit or the time limit is reached.\n- If both teams have equals scores at the end, winner is decided like this:\n  - If only on team has the enemy flag at this moment this team wins.\n  - Otherwise overtime starts. During overtime the teams wins, that reaches his targeted pole first (Yours if you have the flag, the enemies if you don't.) or if the flag carrier is eleminated.";
+//Init SpawnScreen
+SpawnScreen::SetModeName("Capture The Flag");
+SpawnScreen::AddSubsection("Rules", ModeRules, 0.);
+SpawnScreen::CreatePrettyRules();
+SpawnScreen::CreateScores();
 ***
+declare Ident SettingsLayerId;
 declare Ident[][Integer] G_BlockSpawnQueue;	///< A list of spawn points to use
 declare Integer[Integer] MapSidesIndices;
 
@@ -134,10 +132,10 @@ Void UpdateFlagPositions()
 	}
 }
 
-Void UpdateBlockSpawnQueue(Integer clan) {	
-	foreach (BlockSpawn in BlockSpawns) {
-		//if (BlockSpawn.Order <= 1 && clan == 1)	G_BlockSpawnQueue[1].add(BlockSpawn.Id);
-		//else if (BlockSpawn.Order >= 2 && clan == 2) G_BlockSpawnQueue[2].add(BlockSpawn.Id);
+Void UpdateBlockSpawnQueue(Integer clan)
+{	
+	foreach (BlockSpawn in BlockSpawns)
+	{
 		declare BlockTeam = (BlockSpawn.Order - 1) % 2;
 		if (BlockTeam + 1 == clan)
 		{
@@ -288,6 +286,7 @@ CSmPlayer _CreateBotPlayer(Integer Clan, Integer time)
 	declare Ident ModelId;
 	declare CSmPlayer Player;
 	
+	BlockSpawns[SpawnId].Base.Clan = Clan;
 	Player = CreateBotPlayer(ModelId, Clan, ArmorMax, BlockSpawns[SpawnId], time);
 	
 	SetPlayerWeapon(Player, Weapon, AllowSwitch);
@@ -519,7 +518,6 @@ Void UpdateBot(CSmPlayer Player)
 	if (TargetMode == 0)
 	{
 		Player.Driver.Behaviour = CSmPlayerDriver::ESmDriverBehaviour::Saunter;
-		//ScriptedBot_MoveAndAim(Player, Target);
 		Player.Driver.Saunter_AnchorPoint = Target;
 		Player.Driver.Saunter_Radius = 0.5;
 	}
@@ -688,24 +686,6 @@ Text GetMLRoundInfo()
 	return ML;
 }
 
-Text GetMLScoreInfo(CUser User)
-{
-	declare ML = """<frame posn="-67.5 -48">
-						<quad posn="0 0 1" sizen="30 8" style="Bgs1InRace" halign="center" substyle="BgList"/>
-						<label posn="0 -2 2" sizen="30 8" style="TextCardSmallScores2" halign="center" text="{{{Lang::GetUserTranslation("limit.score", User)}}}: {{{ ScoreLimit }}}" />
-					</frame>
-					<frame posn="-37.5 -48">
-						<quad posn="0 0 1" sizen="30 8" style="Bgs1InRace" halign="center" substyle="BgList"/>
-						<label posn="0 -2 2" sizen="30 8" style="TextCardSmallScores2" halign="center" text="{{{Lang::GetUserTranslation("limit.time", User)}}}: {{{ TextLib::TimeToText(TimeLimit) }}}" />
-					</frame>
-					<frame posn="-7.5 -48">
-						<quad posn="0 0 1" sizen="30 8" style="Bgs1InRace" halign="center" substyle="BgList"/>
-						<label posn="0 -2 2" sizen="30 8" style="TextCardSmallScores2" halign="center" text="{{{Lang::GetUserTranslation("limit.win", User)}}}: {{{ WinLimit }}}" />
-					</frame>""";
-	
-	return ML;
-}
-
 Text GetMLEvents(CUser User)
 {
 	declare ML = """<script><!--
@@ -750,68 +730,177 @@ Text GetMLEvents(CUser User)
 				
 	return ML;
 }
-/* ------------------------------------- */
-/** Get the map name manialink string.
- *
- * @return		The manialink string
- */
-Text UpdateLayerSpawnScreen(CUser User) {
+
+Text WeaponModeString()
+{
+	switch(WeaponMode)
+	{
+		case 0:
+			return "normal";
+		case 1:
+			return "rocket only";
+		case 2:
+			return "laser only";
+		case 3:
+			return "arrow only";
+		case 4:
+			return "nucleus only";
+		case 5:
+			return "random";
+		case 6:
+			return "map/pickups";
+		case 7:
+			return "all";
+	}
+	
+	return "unknown";
+}
+
+Text OvertimeModeString()
+{
+	switch(OvertimeMode)
+	{
+		case 0:
+			return "win on advantege";
+		case 1:
+			return "win on capture";
+		case 2: 
+			return "no overtime (draw)";
+	}
+	return "unknown";
+}
+
+Text TeamDamageString()
+{
+	switch (TeamDamage)
+	{
+		case 0:
+			return "no";
+		case 1:
+			return "yes";
+		case 2:
+			return "reflected";
+	}
+	
+	return "unknown";
+}
+
+Text ScoreLimitText()
+{
+	if (ScoreLimit > 0)
+	{
+		return TextLib::ToText(ScoreLimit);
+	}
+	
+	return "none";
+}
+
+Text TimeLimitText()
+{
+	if (TimeLimit > -1)
+	{
+		return TextLib::TimeToText(TimeLimit);
+	}
+	
+	return "none";
+}
+
+Void UpdateSettingsLayer()
+{
+	declare Layer = UIManager.UILayers[SettingsLayerId];
 	declare Text ML;
-	
-	---Rules---
-	
 	ML = """
+		<frame id="MainFrame" posn="0 0 100">
+			<quad posn="0 104 39" sizen="260 200" halign="center" image="file://Media/Manialinks/Shootmania/Common/topsBg.dds" />
+			<frame posn="-110 10 2">
+				<label posn="0 25 2" halign="left" style="TextTitle1" text="Limits" />
+				<label posn="0 15 2" style="TextCardSmallScores2" halign="left" text="Scorelimit: {{{ ScoreLimitText() }}}" />
+				<label posn="0 10 2" style="TextCardSmallScores2" halign="left" text="Timelimit: {{{ TimeLimitText() }}}" />
+				<label posn="0 5 2" style="TextCardSmallScores2" halign="left" text="Rounds to Win: {{{ WinLimit }}}" />
+			</frame>
+			<frame posn="-40 10 2">
+				<label posn="0 25 2" halign="left" style="TextTitle1" text="Scores" />
+				<label posn="0 15 2" style="TextCardSmallScores2" halign="left" text="Taking Flag: {{{ TakeScore }}}" />
+				<label posn="0 10 2" style="TextCardSmallScores2" halign="left" text="Capturing Flag: {{{ CaptureScore }}}" />
+				<label posn="0 5 2" style="TextCardSmallScores2" halign="left" text="Returning Flag: {{{ ReturnScore }}}" />
+				<label posn="0 0 2" style="TextCardSmallScores2" halign="left" text="Hitting Player: {{{ KillScore }}}" />
+			</frame>
+			<frame posn="30 10 2">
+				<label posn="0 25 2" halign="left" style="TextTitle1" text="Times" />
+				<label posn="0 15 2" style="TextCardSmallScores2" halign="left" text="Flag Reset: {{{ TextLib::TimeToText(FlagResetTime) }}}" />
+				<label posn="0 10 2" style="TextCardSmallScores2" halign="left" text="Warmup Duration: {{{TextLib::TimeToText(WarmUpDuration) }}}" />
+				<label posn="0 5 2" style="TextCardSmallScores2" halign="left" text="Item Respawn: {{{TextLib::TimeToText(ItemRespawnTime) }}}" />
+			</frame>
+			<frame posn="-110 -40 2">
+				<label posn="0 25 2" halign="left" style="TextTitle1" text="Weapons" />
+				<label posn="0 15 2" style="TextCardSmallScores2" halign="left" text="Weapon Mode: {{{ WeaponModeString() }}}" />
+				<label posn="0 10 2" style="TextCardSmallScores2" halign="left" text="Default Ammo Gain: {{{ AmmoGain }}}" />
+				<label posn="0 5 2" style="TextCardSmallScores2" halign="left" text="Default Maximum Ammo: {{{ AmmoMax }}}" />
+				<label posn="0 0 2" style="TextCardSmallScores2" halign="left" text="Reload Inactive Weapons:" /><quad posn="39 0.5 2" sizen="4 4" style="Icons64x64_1" """;
+				if (InactiveWeaponReload)
+				{
+					ML ^= """ substyle="LvlGreen" """;
+				}
+				else
+				{
+					ML ^= """ substyle="LvlRed" """;
+				}
+				ML ^= """/>
+			</frame>
+			<frame posn="-40 -40 2">
+				<label posn="0 25 2" halign="left" style="TextTitle1" text="Settings" />
+				<label posn="0 15 2" style="TextCardSmallScores2" halign="left" text="Default Armor: {{{ ArmorMax }}}" />
+				<label posn="0 10 2" style="TextCardSmallScores2" halign="left" text="Maximum Armor: {{{ ArmorGainMax }}}" />
+				<label posn="0 5 2" style="TextCardSmallScores2" halign="left" text="Fill-Up Bot Count: {{{ BotsFill }}}" />
+				<label posn="0 0 2" style="TextCardSmallScores2" halign="left" text="Bot Skill: {{{ BotSkill }}}" />
+			</frame>
+			<frame posn="30 -40 2">
+				<label posn="0 15 2" style="TextCardSmallScores2" halign="left" text="Overtime Mode: {{{ OvertimeModeString() }}}" />
+				<label posn="0 10 2" style="TextCardSmallScores2" halign="left" text="Team Damage: {{{ TeamDamageString() }}}" />
+				<label posn="0 5 2" style="TextCardSmallScores2" halign="left" text="Kill Map Leavers:" /><quad posn="25 5.5 2" sizen="4 4" style="Icons64x64_1" """;
+				if (KillLeavers)
+				{
+					ML ^= """ substyle="LvlGreen" """;
+				}
+				else
+				{
+					ML ^= """ substyle="LvlRed" """;
+				}
+				ML ^= """/>
+			</frame>
+		</frame>
 		<script><!--
-			main () {
-				declare FrameRules	<=> Page.GetFirstChild("FrameRules");
-				declare FrameShow	<=> Page.GetFirstChild("FrameShow");
-				declare ShowRules = False;
-					
-				while(True) {
-					if (ShowRules) {
-						FrameRules.Show();
-						FrameShow.Hide();
-					} else {
-						FrameRules.Hide();
-						FrameShow.Show();
-					}
-
+			main()
+			{
+				declare Boolean _TabsLib_AltLayerIsVisible 		for UI;
+				declare Text 	_TabsLib_CurrentTab 			for UI;
+				declare MainFrame = Page.GetFirstChild("MainFrame");
+				
+				while (True)
+				{
 					yield;
-
-					// process events.
-					foreach (Event in PendingEvents) {
-						switch (Event.Type) {
-							case CMlEvent::Type::MouseClick :
-							{		
-								if (Event.ControlId == "FrameRules") ShowRules = !ShowRules;
-							}
-					
-							case CMlEvent::Type::KeyPress:
-							{
-								if (Event.CharPressed == "2424832") ShowRules = !ShowRules;	// F1
-							}
-						}
+					if (_TabsLib_AltLayerIsVisible && _TabsLib_CurrentTab == "SettingsTab")
+					{
+						MainFrame.Show();
+					}
+					else
+					{
+						MainFrame.Hide();
 					}
 				}
 			}
 		--></script>
-		<frame posn="0 -70 0" id="FrameShow">
-			<quad posn="0 0 10" sizen="140 20" halign="center" valign="center" style="Bgs1InRace" substyle="BgTitle3_5" />
-			<label posn="0 0 11" scale="2" halign="center" valign="center" style="TextTitle3" text="Press F1 to show rules" />
-		</frame>
-		<frame posn="0 50 1" id="FrameRules">
-			<frame posn="0 0 5">
-				<quad posn="0 0 10" sizen="120 20" halign="center" valign="center" style="Bgs1InRace" substyle="BgTitle3_5" />
-				<label posn="0 0 11" scale="2" halign="center" valign="center" style="TextTitle3" text="$fff{{{ ModeName }}}" />
-			</frame>
-			<frame posn="0 -10 5">
-				<quad posn="0 0 10" sizen="300 120" halign="center" bgcolor="222c" />
-				<label posn="-145 -5 11" sizen="145 5" scale="2" autonewline="1" style="TextCardSmallScores2" text="{{{ Lang::GetUserTranslation("mode.rules", User) }}}" />
-			</frame>
-		</frame>
 	""";
 	
-	return ML;
+	Layer.ManialinkPage = ML;
+}
+
+CUILayer CreateSettingsLayer()
+{
+	declare CUILayer Layer <=> UIManager.UILayerCreate();
+	SettingsLayerId = Layer.Id;
+	UpdateSettingsLayer();
+	return Layer;
 }
 
 Text CreateMarkerLayer()
@@ -965,6 +1054,7 @@ Void _SpawnPlayer(CSmPlayer Player, Integer time)
 	
 	//PowerUp::AddPowerup(Player, "powerup.spawnProtection", Now + RespawnTime + 1000);
 	Pickup::OnPlayerSpawn(Player, Weapon, MaxAmmo, ArmorMax, Gain, AllowSwitch);
+	BlockSpawns[SpawnId].Base.Clan = Player.RequestedClan;
 	SM::SpawnPlayer(Player, Player.RequestedClan, BlockSpawns[SpawnId], time);
 }
 
@@ -996,9 +1086,9 @@ Void DropFlag(CSmPlayer Player)
 	Lang::SendNotice("flag.drop", CUIConfig::ENoticeLevel::MatchInfo, 
 	Player.User, CUIConfig::EAvatarVariant::Default, 
 	CUIConfig::EUISound::Silence, 0, Player.Name, Teams[2 - Clan].ColorizedName
-	); //old sound: PhaseChange
+	);
 	Sound::PlaySoundAll("Flag.Drop." ^ Player.CurrentClan);
-	FlagObjects[3 - Clan].SetPosition(Player.Position);
+	FlagObjects[3 - Clan].SetPositionAndVel(Player.Position + <0., 1., 0.>, <0., 0., 0.>);
 	
 	if (Player.IsBot)
 	{
@@ -1021,10 +1111,13 @@ Void TakeFlag(CSmPlayer Player, Boolean GetScore)
 	{
 		declare AtkScore for Player = 0;
 		
-		//Top::IncrementPlayerPoints("Captures", Player, 1);
 		Score::AddPoints(Player, TakeScore);
 		AtkScore += TakeScore;
 		ScoresTable::SetCustom2(Player, TextLib::ToText(AtkScore));
+		if (!Player.IsBot)
+		{
+			Top::SetRecord(Player, "Atk", TextLib::ToText(AtkScore), AtkScore);
+		}
 	}
 	Lang::SendNotice("flag.take", CUIConfig::ENoticeLevel::MatchInfo, 
 	Player.User, CUIConfig::EAvatarVariant::Default, 
@@ -1086,13 +1179,12 @@ Void KillLeavers()
 	}
 }
 
-main() {
+main()
+{
 	declare MatchNumber = 0;
 	log("""Capture the Flag V. {{{VersionNum}}} initializing...""");
 	DbgEnableNavMesh = True;
 	UseClans = True;
-	
-	//Tabs::Load();
 	
 	declare LayerRoundInfo <=> UIManager.UILayerCreate();
 	declare LayerVersion <=> UIManager.UILayerCreate();
@@ -1135,17 +1227,60 @@ main() {
 	//Load flag models
 	ItemList_Begin();
 	FlagModels = [1 => ItemList_Add(BlueFlagPath), 2 => ItemList_Add(RedFlagPath)];
-	PickupItems = [ 1 => ItemList_Add(RocketItemPath), 2 => ItemList_Add(LaserItemPath), 3 => ItemList_Add(NucleusItemPath), 4 => ItemList_Add(ArrowItemPath), 5 => ItemList_Add(ArmorItemPath), 6 => ItemList_Add(DoubleDamageItemPath)];
+	Pickup::LoadModels();
 	ItemList_End();
 	
-	while( !ServerShutdownRequested ) {
+	UIManager.UIAll.ScreenIn3dHideScoreSummary=True;
+	UIManager.UIAll.AltMenuNoCustomScores = True;
+	UIManager.UIAll.AltMenuNoDefaultScores = True;
+	
+	while( !ServerShutdownRequested )
+	{
 		declare LastBotUpdate = 0;
 		XmlRpc::LoadingMap(NextMapIndex);
 		LoadMap();
 		XmlRpc::BeginMap(NextMapIndex);
-				
+	
+		Top::Load();
+		Top::SetTopWidth(65.);
+		declare Real TopXPosition	= -70.;
+		declare Real TopYPosition	= 39.;
+		declare Real TopXOffset 	= 70.;
+		declare Real TopYOffset 	= -50.;
+		declare Integer NbPlayersPerTop = 7;
+		declare Text TopBGImg = "file://Media/Manialinks/Shootmania/Common/topsBg.dds";
+		Top::Create("Hit", _("Top Hit"), NbPlayersPerTop, <TopXPosition, TopYPosition>);
+		TopXPosition += TopXOffset;
+		Top::Create("Atk", _("Top Capture"), NbPlayersPerTop, <TopXPosition, TopYPosition>);
+		TopXPosition += TopXOffset;
+		Top::Create("Def", _("Top Defense"), NbPlayersPerTop, <TopXPosition, TopYPosition>);
+		TopXPosition -= TopXOffset * 2;
+		TopYPosition += TopYOffset;
+		Top::Create("HeadShot", "Top Headshots", NbPlayersPerTop, <TopXPosition, TopYPosition>);
+		TopXPosition += TopXOffset;
+		Top::Create("Spree", "Top Spree", NbPlayersPerTop, <TopXPosition, TopYPosition>);
+		TopXPosition += TopXOffset;
+		Top::Create("Multi", "Top Multikill", NbPlayersPerTop, <TopXPosition, TopYPosition>);
+		Top::SetCommonBackgroundImage(TopBGImg,  <0., 104.>, <260., 200.>);
+		Top::SetLayerType(CUILayer::EUILayerType::AltMenu);
+		//Init Tabs
+		Tabs::Load();
+		declare TabsLayer <=> Tabs::CreateTabPaneLayer(
+		[
+			"ScoresTab" => "Rankings", 
+			"TopTab"	=> "Buddies",
+			"SettingsTab" => "Advanced"
+			
+		], 5, -5, False);
+		
+		TabsLayer.Type = CUILayer::EUILayerType::AltMenu;
+		UIManager.UIAll.UILayers.add(TabsLayer);
+		declare SettingsLayer <=> CreateSettingsLayer();
+		SettingsLayer.Type = CUILayer::EUILayerType::AltMenu;
+		UIManager.UIAll.UILayers.add(SettingsLayer);	
 				
 		ScoresTable::StartMatch();
+		
 		//Init UI
 		log("""Initializing {{{ScoresTable::GetScriptName()}}} V.{{{ScoresTable::GetScriptVersion()}}}""");
 		ScoresTable::Load();
@@ -1162,7 +1297,14 @@ main() {
 		ScoresTable::SetDefaultCustom3("0");
 		ScoresTable::SetTableBackgroundImage("file://Media/Manialinks/ShootMania/Common/scoresBg.dds", <0., 62.>, <260., 200.>);
 		ScoresTable::Build();
-		//Top::MatchBegin();
+		ScoresTable::GetLayerScoresTable().Type = CUILayer::EUILayerType::Normal;
+		
+		Top::ResetAll();
+		
+		//Init SpawnScreen
+		---Rules---
+		SpawnScreen::CreateMapInfo();
+		
 		Score::MatchBegin(False);	
 		Airshot::MatchBegin();
 		Victory::MatchBegin();
@@ -1176,7 +1318,6 @@ main() {
 		foreach (Player in Players)
 		{
 			declare CUILayer LayerEvents for Player;
-			declare CUILayer LayerSpawnScreen for Player;
 			declare CUILayer LayerWeapon for Player;
 			declare AtkScore for Player = 0;
 			declare DefScore for Player = 0;
@@ -1188,9 +1329,7 @@ main() {
 			
 			LayerWeapon <=> Null;
 			LayerEvents <=> Null;
-			LayerSpawnScreen <=> Null;
 			Sound::InitForPlayer(Player);
-			//PowerUp::InitForPlayer(Player);
 		}
 		
 		foreach (Player in Spectators)
@@ -1250,8 +1389,23 @@ main() {
 		
 		ClanScores[1] = 0;
 		ClanScores[2] = 0;
+		
+		foreach (Player in AllPlayers)
+		{
+			declare NewPlayer for Player = True;
+			declare NewSpectator for Player = True;
+			
+			NewPlayer = True;
+			NewSpectator = True;
+		}
+		
 		while( Victory::NoMatchWinner() && !MatchEndRequested ) 
 		{	
+			foreach (Player in Players)
+			{
+				Tabs::UseTabs(UIManager.GetUI(Player), "ScoresTab");
+				Tabs::AlwaysShowScore(UIManager.GetUI(Player), True);
+			}
 			ScoresTable::StartMatch();
 			XmlRpc::BeginRound(Round);
 			Multikill::ResetSprees();
@@ -1290,22 +1444,11 @@ main() {
 			UpdateBlockSpawnQueue(1);
 			UpdateBlockSpawnQueue(2);
 			
-			/*for (Num, 0, BotsBlue - 1)
-			{
-				BotPlayers.add(_CreateBotPlayer(1, Now + RespawnTime + Num * 500));
-			}
-			
-			for (Num, 0, BotsRed - 1)
-			{
-				BotPlayers.add(_CreateBotPlayer(2, Now + RespawnTime + Num * 500));
-			}*/
-			
 			Update3dMarkers();
 			
 			for(Clan, 1, 2)
 			{
 				declare Integer PickupType for FlagObjects[Clan];
-				
 				PickupType = -1;
 				foreach(SpawnId in G_BlockSpawnQueue[MapSidesIndices[Clan]])
 				{
@@ -1329,14 +1472,30 @@ main() {
 				}
 			}
 			
+			foreach (Spectator in Spectators)
+			{
+				declare NewPlayer for Spectator = True;
+				declare NewSpectator for Spectator = True;
+				
+				if (NewSpectator)
+				{
+					NewPlayer = True;
+					NewSpectator = False;
+				}
+			}
+			
 			foreach (Player in Players)
 			{
 				declare UI <=> UIManager.GetUI(Player);
-				declare ScoresRestored for Player = False;
+				declare NewPlayer for Player = True;
+				declare NewSpectator for Player = True;
 				
-				if (!ScoresRestored)
+				if (NewPlayer)
 				{
-					ScoresRestored = True;
+					Tabs::UseTabs(UI, "ScoresTab");
+					Tabs::AlwaysShowScore(UI, True);
+					NewPlayer = False;
+					NewSpectator = True;
 					ScoresTable::RestoreCustomScores(Player);
 				}
 				
@@ -1362,7 +1521,7 @@ main() {
 				Pole.Gauge.Clan = Clan;
 				Pole.Captured = True;
 				
-				FlagObjects[Clan].SetPosition(Pole.Position - <0., 1., 0.>);
+				FlagObjects[Clan].SetPosition(Pole.Position);
 			}
 			
 			while ( Victory::NoRoundWinner() && !MatchEndRequested )
@@ -1462,6 +1621,11 @@ main() {
 								XmlRpc::OnHit(Event);
 							}
 							ScoresTable::SetCustom1(Event.Shooter, TextLib::ToText(HitScore));
+							
+							if (!Event.Shooter.IsBot)
+							{
+								Top::SetRecord(Event.Shooter, "Hit", TextLib::ToText(HitScore), HitScore);
+							}
 							PassOn(Event);
 						}
 					}
@@ -1510,7 +1674,7 @@ main() {
 							Event.Victim.User, CUIConfig::EAvatarVariant::Default, 
 							CUIConfig::EUISound::Capture, 0, Event.Victim.Name, Teams[2 - Event.Victim.CurrentClan].ColorizedName
 							);
-							FlagObjects[3 - Event.Victim.CurrentClan].SetPosition(Poles[3 - Event.Victim.CurrentClan].Position - <0., 1., 0.>);
+							FlagObjects[3 - Event.Victim.CurrentClan].SetPosition(Poles[3 - Event.Victim.CurrentClan].Position);
 						}
 						else if(Event.Victim != Null)
 						{
@@ -1538,12 +1702,16 @@ main() {
 						if (Clan > -1)
 						{
 							if(Event.Player.CurrentClan == Clan
-								&& Event.Object.Position != Poles[Clan].Position - <0., 1., 0.>
+								&& !Poles[Clan].Captured
 								&& FlagCarrier[3-Clan] == NullId)
 							{
 								declare DefScore for Event.Player = 0;
 								DefScore += ReturnScore;
 								ScoresTable::SetCustom3(Event.Player, TextLib::ToText(DefScore));
+								if (!Event.Player.IsBot)
+								{
+									Top::SetRecord(Event.Player, "Def", TextLib::ToText(DefScore), DefScore);
+								}
 								Poles[Clan].Gauge.Value = 100;
 								Poles[Clan].Captured = True;
 								FlagDropTimes[Clan] = 0;
@@ -1552,7 +1720,7 @@ main() {
 								Event.Player.User, CUIConfig::EAvatarVariant::Default, 
 								CUIConfig::EUISound::Warning, 0, Event.Player.Name, Teams[Clan - 1].ColorizedName
 								);
-								Event.Object.SetPosition(Poles[Clan].Position - <0., 1., 0.>);
+								Event.Object.SetPosition(Poles[Clan].Position);
 								Sound::PlaySoundAll("""Flag.Return.{{{3 - Clan}}}""");
 							}
 							else if (FlagCarrier[3 - Clan] == NullId && Event.Player.CurrentClan != Clan)
@@ -1666,7 +1834,7 @@ main() {
 						);
 						
 						FlagCarrier[Clan] = NullId;
-						FlagObjects[3 - Clan].SetPosition(Poles[3 - Clan].Position - <0., 1., 0.>);
+						FlagObjects[3 - Clan].SetPosition(Poles[3 - Clan].Position);
 					}
 					
 					if(FlagDropTimes[Clan] > 0 && FlagDropTimes[Clan] + FlagResetTime <= Now)
@@ -1679,7 +1847,7 @@ main() {
 						Null, CUIConfig::EAvatarVariant::Default, 
 						CUIConfig::EUISound::Warning, 0, Teams[Clan - 1].ColorizedName, ""
 						);
-						FlagObjects[Clan].SetPosition(Poles[Clan].Position - <0., 1., 0.>);
+						FlagObjects[Clan].SetPosition(Poles[Clan].Position);
 					}
 					/*else if(FlagDropTimes[Clan] > 0)
 					{
@@ -1746,9 +1914,11 @@ main() {
 								declare Integer LockedTill for FlagObjects[3 - Clan];
 								declare AtkScore for Player = 0;
 								AtkScore += CaptureScore;
+								ScoresTable::SetCustom2(Player, TextLib::ToText(AtkScore));
 								LockedTill = Now + 100;
 								if (!Player.IsBot)
 								{
+									Top::SetRecord(Player, "Atk", TextLib::ToText(AtkScore), AtkScore);
 									declare netwrite HasFlag for UIManager.GetUI(Player) = False;
 									HasFlag = False;
 								}
@@ -1759,7 +1929,7 @@ main() {
 									Victory::SetRoundWinnerIfNoWinner(Clan);
 									break;
 								}
-								FlagObjects[3 - Clan].SetPosition(Poles[3 - Clan].Position - <0., 1., 0.>);
+								FlagObjects[3 - Clan].SetPosition(Poles[3 - Clan].Position);
 								FlagCarrier[Clan] = NullId;
 								Poles[3 - Clan].Gauge.Value = 100;
 								Poles[3 - Clan].Captured = True;
@@ -1835,9 +2005,11 @@ main() {
 				// UI				
 				if ( Now > LatestUITick + UITickPeriod)
 				{
+					Top::Loop();
 					LatestUITick = Now;
 					
 					declare ClanTotalRatios = [1=>0, 2=>0];
+					UpdateSettingsLayer();
 					LayerRoundInfo.ManialinkPage = GetMLRoundInfo();
 					
 					declare tmp = ((Now - StartTime) / 12000) % 3;
@@ -1866,7 +2038,7 @@ main() {
 						if (!Player.IsFakePlayer)
 						{
 							declare PlayerUI <=> UIManager.GetUI(Player);
-							declare CUILayer LayerSpawnScreen for Player;
+							/*declare CUILayer LayerSpawnScreen for Player;
 							if (LayerSpawnScreen == Null) {
 								LayerSpawnScreen <=> UIManager.UILayerCreate();
 								LayerSpawnScreen.Type = CUILayer::EUILayerType::ScreenIn3d;
@@ -1875,7 +2047,7 @@ main() {
 							LayerSpawnScreen.ManialinkPage = UpdateLayerSpawnScreen(Player.User);
 							
 							
-							PlayerUI.UILayers.add(LayerSpawnScreen);
+							PlayerUI.UILayers.add(LayerSpawnScreen);*/
 							PlayerUI.UILayers.add(LayerEvents);
 							Sound::AddUILayer(Player);
 							//PowerUp::AddUILayer(Player);
@@ -1908,7 +2080,7 @@ main() {
 					Sound::AddUILayer(Player);
 				}
 			}
-
+			
 			sleep(2000);
 			
 			foreach(Player in Players) {
@@ -1946,10 +2118,11 @@ main() {
 				ClanScores[2] += 1;
 			}
 			
-			sleep(4000);
+			sleep(1000);
 			
 			Victory::SetMatchWinnerFromScore(WinLimit, 0, RoundLimit);
 			
+			UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedVisible;
 			UIManager.UIAll.UISequence = CUIConfig::EUISequence::EndRound;					
 			
 
@@ -1957,7 +2130,8 @@ main() {
 				UnspawnPlayer(Player);					
 			}
 
-			sleep(4*1000);
+			sleep(6000);
+			UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
 						
 			+++RoundEnd+++	
 			Score::RoundEnd();

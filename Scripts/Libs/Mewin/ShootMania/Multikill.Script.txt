@@ -1,4 +1,6 @@
 #Include "MathLib" as MathLib
+#Include "TextLib" as TextLib
+#Include "Libs/Nadeo/Top2.Script.txt" as Top
 #Include "Libs/Mewin/Common/Lang.Script.txt" as Lang
 #Include "Libs/Mewin/ShootMania/Sound.Script.txt" as Sound
 
@@ -30,7 +32,7 @@ Void ResetSpree(CSmPlayer Player)
 	declare KillingSpree for Player = 0;
 	declare DeathSpree for Player = 0;
 	declare HeadShots for Player = 0;
-	
+		
 	KillingSpree = 0;
 	DeathSpree = 0;
 	HeadShots = 0;
@@ -41,6 +43,13 @@ Void ResetSprees()
 	foreach (Player in Players)
 	{
 		ResetSpree(Player);
+		declare RecordSpree for Player = 0;
+		declare RecordMulti for Player = 0;
+		declare AllHeadShots for Player = 0;
+		
+		RecordSpree = 0;
+		RecordMulti = 0;
+		AllHeadShots = 0;
 	}
 	
 	foreach (Player in BotPlayers)
@@ -63,7 +72,7 @@ Void OnPlayerKill(CSmPlayer Player)
 		}
 	}
 	
-	if (Player == Null || Player.IsFakePlayer)
+	if (Player == Null || Player.IsFakePlayer || Player.IsBot)
 	{
 		return;
 	}
@@ -109,14 +118,20 @@ Void OnPlayerKill(CSmPlayer Player)
 		{
 			MultikillText = "multi.private6";
 		}
-		if (!Player.IsBot)
-			UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation(MultikillText, Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::TiePoint, 0);
+		UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation(MultikillText, Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::TiePoint, 0);
 		Sound::PlaySound(Player, "Multikill/Multi." ^ MultiKill);
+		
+		//Top
+		declare RecordMulti for Player = 0;
+		if (MultiKill > RecordMulti)
+		{
+			RecordMulti = MultiKill;
+			Top::SetRecord(Player, "Multi", TextLib::ToText(RecordMulti), RecordMulti);
+		}
 	}
 	if (KillingSpree % 5 == 0 && KillingSpree <= 25)
 	{
-		if (!Player.IsBot)
-			UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation("spree.private" ^ KillingSpree, Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::TiePoint, 0);
+		UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation("spree.private" ^ KillingSpree, Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::TiePoint, 0);
 			
 		Lang::SendNotice("spree.public" ^ KillingSpree, CUIConfig::ENoticeLevel::PlayerInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0, Player.Name, "");
 			Sound::PlaySound(Player, "Multikill/Spree." ^ KillingSpree);
@@ -125,6 +140,15 @@ Void OnPlayerKill(CSmPlayer Player)
 	{
 			
 		Lang::SendNotice("spree.publicMore", CUIConfig::ENoticeLevel::PlayerInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0, Player.Name, "" ^ KillingSpree);
+	}
+	
+	//Top
+	declare RecordSpree for Player = 0;
+	
+	if (KillingSpree > RecordSpree)
+	{
+		RecordSpree = KillingSpree;
+		Top::SetRecord(Player, "Spree", TextLib::ToText(RecordSpree), RecordSpree);
 	}
 }
 
@@ -172,6 +196,11 @@ Void OnHeadShot(CSmPlayer Player)
 		UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation("special.headshot", Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0);
 		Sound::PlaySound(Player, "Multikill/Special.Headshot");
 	}
+	
+	//Top
+	declare AllHeadShots for Player = 0;
+	AllHeadShots += 1;
+	Top::SetRecord(Player, "HeadShot", TextLib::ToText(AllHeadShots), AllHeadShots);
 }
 
 Real Skalar(Vec3 _Vec1, Vec3 _Vec2)

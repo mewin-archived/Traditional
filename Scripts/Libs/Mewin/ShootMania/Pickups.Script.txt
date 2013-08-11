@@ -1,4 +1,5 @@
 #Include "MathLib" as MathLib
+#Include "TextLib" as TextLib
 
 #Const		RocketItemPath				"SMCommon/Pickups/Rocket.Item.gbx"
 #Const		LaserItemPath				"SMCommon/Pickups/Laser.Item.gbx"
@@ -128,6 +129,21 @@ Void RespawnItems()
 	}
 }
 
+Text Replace(Text Haystack, Text Needle, Text Replacement)
+{
+	declare Split = TextLib::Split(Needle, Haystack);
+	declare Result = Split[0];
+	if (Split.count > 1)
+	{
+		for (I, 1, Split.count - 1)
+		{
+			Result ^= Replacement ^ Split[I];
+		}
+	}
+	
+	return Result;
+}
+
 Void SpawnItems()
 {
 	foreach (Pole in BlockPoles)
@@ -140,6 +156,35 @@ Void SpawnItems()
 			PickupType = Pole.Order;
 			
 			NewObject.SetPosition(Pole.Position);
+		}
+	}
+	
+	foreach (Anchor in ObjectAnchors)
+	{
+		declare ItemOrder = 0;
+		switch (Replace(Anchor.ItemName, "\\", "/"))
+		{
+			case RocketItemPath:
+				ItemOrder = 1;
+			case LaserItemPath:
+				ItemOrder = 2;
+			case NucleusItemPath:
+				ItemOrder = 3;
+			case ArrowItemPath:
+				ItemOrder = 4;
+			case ArmorItemPath:
+				ItemOrder = 5;
+			case DoubleDamageItemPath:
+				ItemOrder = 6;
+		}
+		if (ItemOrder > 0)
+		{
+			declare NewObject = ObjectCreate(PickupItems[ItemOrder]);
+			declare Integer PickupType for NewObject;
+			
+			PickupType = ItemOrder;
+			
+			NewObject.SetPosition(Anchor.Position);
 		}
 	}
 }
