@@ -4,9 +4,24 @@
 #Include "Libs/Mewin/Common/Lang.Script.txt" as Lang
 #Include "Libs/Mewin/ShootMania/Sound.Script.txt" as Sound
 
+// ---- message priorities ---- //
+#Const	FirstBloodPriority		25
+#Const	SpreePriority			20
+#Const	HeadshotPriority		20
+#Const	MultikillPriority		25
+
 declare Integer MinimumPublicCount;
 declare Integer MultiKillDelay;
 declare Boolean FirstBloodDone;
+
+Text PlayerName(CSmPlayer Player)
+{
+	if (!UseClans)
+	{
+		return Player.Name;
+	}
+	return "$" ^ TextLib::ColorToText(Teams[Player.CurrentClan - 1].ColorPrimary) ^ Player.Name;
+}
 
 Void Init(Boolean MultiLang)
 {
@@ -63,12 +78,12 @@ Void OnPlayerKill(CSmPlayer Player)
 	if (!FirstBloodDone)
 	{
 		FirstBloodDone = True;
-		Lang::SendNotice("special.firstbloodPublic", CUIConfig::ENoticeLevel::PlayerInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0, Player.Name, "");
+		Lang::SendStatusMessage("special.firstbloodPublic", 2000, FirstBloodPriority, PlayerName(Player), "");
 		
 		if (!Player.IsBot)
 		{
 			Sound::PlaySound(Player, "Multikill/Special.Firstblood");
-			UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation("special.firstbloodPrivate", Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0);
+			Lang::SendBigMessage(Player, "special.firstbloodPrivate", 1000, FirstBloodPriority);
 		}
 	}
 	
@@ -107,7 +122,7 @@ Void OnPlayerKill(CSmPlayer Player)
 			{
 				MultikillText = "multi.public6";
 			}
-			Lang::SendNotice(MultikillText, CUIConfig::ENoticeLevel::PlayerInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0, Player.Name, "");
+			Lang::SendStatusMessage(MultikillText, 2000, MultikillPriority + MultiKill, PlayerName(Player), "");
 		}
 		declare Text MultikillText;
 		if (MultiKill < 6)
@@ -118,7 +133,7 @@ Void OnPlayerKill(CSmPlayer Player)
 		{
 			MultikillText = "multi.private6";
 		}
-		UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation(MultikillText, Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::TiePoint, 0);
+		Lang::SendBigMessage(Player, MultikillText, 2000, MultikillPriority + MultiKill);
 		Sound::PlaySound(Player, "Multikill/Multi." ^ MultiKill);
 		
 		//Top
@@ -131,20 +146,19 @@ Void OnPlayerKill(CSmPlayer Player)
 	}
 	if (KillingSpree % 5 == 0 && KillingSpree <= 25)
 	{
-		UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation("spree.private" ^ KillingSpree, Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::TiePoint, 0);
-			
-		Lang::SendNotice("spree.public" ^ KillingSpree, CUIConfig::ENoticeLevel::PlayerInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0, Player.Name, "");
-			Sound::PlaySound(Player, "Multikill/Spree." ^ KillingSpree);
+		Lang::SendBigMessage(Player, "spree.private" ^ KillingSpree, 2000, SpreePriority + KillingSpree);
+		
+		Lang::SendStatusMessage("spree.public" ^ KillingSpree, 2000, SpreePriority + KillingSpree, PlayerName(Player), "");
+		Sound::PlaySound(Player, "Multikill/Spree." ^ KillingSpree);
 	}
 	else if (KillingSpree % 5 == 0)
 	{
 			
-		Lang::SendNotice("spree.publicMore", CUIConfig::ENoticeLevel::PlayerInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0, Player.Name, "" ^ KillingSpree);
+		Lang::SendBigMessage("spree.publicMore", 2000, SpreePriority + KillingSpree, PlayerName(Player), "" ^ KillingSpree);
 	}
 	
 	//Top
 	declare RecordSpree for Player = 0;
-	
 	if (KillingSpree > RecordSpree)
 	{
 		RecordSpree = KillingSpree;
@@ -188,12 +202,12 @@ Void OnHeadShot(CSmPlayer Player)
 	HeadShots += 1;
 	if (HeadShots == 15)
 	{
-		UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation("special.headhunter", Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0);
+		Lang::SendBigMessage(Player, "special.headhunter", 2000, HeadshotPriority + SpreePriority);
 		Sound::PlaySound(Player, "Multikill/Special.Headhunter");
 	}
 	else
 	{
-		UIManager.GetUI(Player).SendNotice(Lang::GetUserTranslation("special.headshot", Player.User), CUIConfig::ENoticeLevel::MatchInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0);
+		Lang::SendBigMessage(Player, "special.headshot", 2000, HeadshotPriority);
 		Sound::PlaySound(Player, "Multikill/Special.Headshot");
 	}
 	

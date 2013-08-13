@@ -1,4 +1,5 @@
 #Include "TextLib" as TextLib
+#Include "Libs/Nadeo/Message.Script.txt" as Message
 
 declare Text[Text][Text] Translations;
 declare Text DefaultLang;
@@ -70,6 +71,7 @@ Text GetUserTranslation(Text _Name, CUser _User)
 	return GetTranslation(_Name, _User.Language);
 }
 
+//deprecated, use SendBigMessage instead
 Void SendNotice(Text _Text, CUIConfig::ENoticeLevel _NoticeLevel, CUser _User, CUIConfig::EAvatarVariant _Avatar, CUIConfig::EUISound _Sound, Integer _SoundVariant, Text _Replace1, Text _Replace2)
 {
 	foreach(Player in Players)
@@ -90,4 +92,67 @@ Void SendNotice(Text _Text, CUIConfig::ENoticeLevel _NoticeLevel, CUser _User, C
 Void Init()
 {
 	SetDefaultLang("en");
+}
+
+Void SendBigMessage(CSmPlayer _Player, Text _Message, Integer _Duration, Integer _Priority, Text Replace1, Text Replace2)
+{
+	if (!_Player.IsBot)
+	{
+		UIManager.GetUI(_Player).SendNotice(TextLib::Compose(GetUserTranslation(_Message, _Player.User), Replace1, Replace2), CUIConfig::ENoticeLevel::MatchInfo, Null, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0);
+		//Message::SendBigMessage(_Player, TextLib::Compose(GetUserTranslation(_Message, _Player.User), Replace1, Replace2), _Duration, _Priority);
+	}
+}
+
+Void SendBigMessage(Text _Message, Integer _Duration, Integer _Priority, Text Replace1, Text Replace2)
+{
+	foreach (Player in Players)
+	{
+		SendBigMessage(Player, _Message, _Duration, _Priority, Replace1, Replace2);
+	}
+	
+	foreach (Spectator in Spectators)
+	{
+		SendBigMessage(Spectator, _Message, _Duration, _Priority, Replace1, Replace2);
+	}
+}
+
+Void SendBigMessage(Text _Message, Integer _Duration, Integer _Priority)
+{
+	SendBigMessage(_Message, _Duration, _Priority, "", "");
+}
+
+Void SendBigMessage(CSmPlayer _Player, Text _Message, Integer _Duration, Integer _Priority)
+{
+	SendBigMessage(_Player, _Message, _Duration, _Priority, "", "");
+}
+
+Void SendStatusMessage(CSmPlayer Player, Text _Message, Integer _Duration, Integer _Priority, Text Replace1, Text Replace2)
+{
+	if (!Player.IsBot)
+	{
+		Message::SendStatusMessage(Player, TextLib::Compose(GetUserTranslation(_Message, Player.User), Replace1, Replace2), _Duration, _Priority);
+	}
+}
+
+Void SendStatusMessage(Text _Message, Integer _Duration, Integer _Priority, Text Replace1, Text Replace2)
+{
+	foreach (Player in Players)
+	{
+		SendStatusMessage(Player, _Message, _Duration, _Priority, Replace1, Replace2);
+	}
+	
+	foreach (Spectator in Spectators)
+	{
+		SendStatusMessage(Spectator, _Message, _Duration, _Priority, Replace1, Replace2);
+	}
+}
+
+Void SendStatusMessage(CSmPlayer _Player, Text _Message, Integer _Duration, Integer _Priority)
+{
+	SendStatusMessage(_Player, _Message, _Duration, _Priority, "", "");
+}
+
+Void SendStatusMessage(Text _Message, Integer _Duration, Integer _Priority)
+{
+	SendStatusMessage(_Message, _Duration, _Priority, "", "");
 }
