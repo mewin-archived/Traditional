@@ -1,5 +1,6 @@
 #Include "MathLib" as MathLib
 #Include "TextLib" as TextLib
+#Include "Libs/Mewin/ShootMania/StatusEffects.Script.txt" as StatusEffects
 
 #Const		RocketItemPath				"SMCommon/Pickups/Rocket.Item.gbx"
 #Const		LaserItemPath				"SMCommon/Pickups/Laser.Item.gbx"
@@ -8,6 +9,7 @@
 #Const		ArmorItemPath				"SMCommon/Pickups/Armor.Item.gbx"
 #Const		DoubleDamageItemPath		"DoubleDamage.Item.gbx"
 #Const		WeaponNames					[1 => "Rocket", 2 => "Laser", 3 => "Nucleus", 4 => "Arrow"]
+#Const		C_AmmoPerPickup				[1 => 10, 2 => 5, 3 => 7, 4 => 5]
 
 declare Ident[Integer] PickupItems;
 declare Integer ItemRespawnTime;
@@ -16,10 +18,49 @@ declare Integer DoubleDamageTime;
 declare Boolean AllWeapons;
 declare Real[Integer] RespawnModifier;
 declare CUILayer[Ident] UILayers;
+declare Integer MultiWeaponMode;
+declare Integer[Integer] AmmoPerPickup;
 
 Void LoadModels()
 {
 	PickupItems = [ 1 => ItemList_Add(RocketItemPath), 2 => ItemList_Add(LaserItemPath), 3 => ItemList_Add(NucleusItemPath), 4 => ItemList_Add(ArrowItemPath), 5 => ItemList_Add(ArmorItemPath), 6 => ItemList_Add(DoubleDamageItemPath)];
+}
+
+Integer GetAmmoPerPickup(Integer Weapon)
+{
+	if (AmmoPerPickup.count < 1)
+	{
+		AmmoPerPickup = C_AmmoPerPickup;
+	}
+	
+	return AmmoPerPickup[Weapon];
+}
+
+Void SetAmmoPerPickup(Integer Weapon, Integer Ammo)
+{
+	if (AmmoPerPickup.count < 1)
+	{
+		AmmoPerPickup = C_AmmoPerPickup;
+	}
+	
+	AmmoPerPickup[Weapon] = Ammo;
+}
+
+Void SetMultiWeaponMode(Integer Mode)
+{
+	if (Mode < 0 || Mode > 1)
+	{
+		MultiWeaponMode = 0;
+	}
+	else
+	{
+		MultiWeaponMode = Mode;
+	}
+}
+
+Integer GetMultiWeaponMode()
+{
+	return MultiWeaponMode;
 }
 
 Void SetAllWeapons(Boolean All)
@@ -196,6 +237,10 @@ Void OnPlayerSpawn(CSmPlayer Player, CSmMode::EWeapon DefaultWeapon, Integer Max
 	declare HasWeaponLaser for Player = False;
 	declare HasWeaponNucleus for Player = False;
 	declare HasWeaponArrow for Player = False;
+	declare AmmoRocket for Player = 0;
+	declare AmmoLaser for Player = 0;
+	declare AmmoNucleus for Player = 0;
+	declare AmmoArrow for Player = 0;
 	declare Integer DoubleDamagePickup for Player;
 							
 	DoubleDamagePickup = 0;
@@ -220,18 +265,22 @@ Void OnPlayerSpawn(CSmPlayer Player, CSmMode::EWeapon DefaultWeapon, Integer Max
 		case CSmMode::EWeapon::Rocket: {
 			HasWeaponRocket = True;
 			CurrentWeapon = 1;
+			AmmoRocket = -1;
 		}
 		case CSmMode::EWeapon::Laser: {
 			HasWeaponLaser = True;
 			CurrentWeapon = 2;
+			AmmoLaser = -1;
 		}
 		case CSmMode::EWeapon::Nucleus: {
 			HasWeaponNucleus = True;
 			CurrentWeapon = 3;
+			AmmoNucleus = -1;
 		}
 		case CSmMode::EWeapon::Arrow: {
 			HasWeaponArrow = True;
 			CurrentWeapon = 4;
+			AmmoArrow = -1;
 		}
 	}
 	
@@ -256,6 +305,21 @@ Void OnPlayerSpawn(CSmPlayer Player, CSmMode::EWeapon DefaultWeapon)
 	OnPlayerSpawn(Player, DefaultWeapon, -1, -1, -1., True);
 }
 
+Boolean HasDoubleDamage(CSmPlayer Player)
+{
+	declare DoubleDamagePickup for Player = 0;
+	
+	return DoubleDamagePickup + DoubleDamageTime > Now;
+}
+
+Void RemoveDoubleDamage(CSmPlayer Player)
+{
+	declare DoubleDamagePickup for Player = 0;
+	
+	DoubleDamagePickup = 0;
+	StatusEffects::RemovePlayerEffect(Player, "DoubleDamage");
+}
+
 Boolean HandlePickup(CSmObject Object, CSmPlayer Player)
 {
 	declare Integer PickupType for Object;
@@ -263,28 +327,48 @@ Boolean HandlePickup(CSmObject Object, CSmPlayer Player)
 	declare Boolean HasWeaponLaser for Player;
 	declare Boolean HasWeaponNucleus for Player;
 	declare Boolean HasWeaponArrow for Player;
+	declare AmmoRocket for Player = 0;
+	declare AmmoLaser for Player = 0;
+	declare AmmoNucleus for Player = 0;
+	declare AmmoArrow for Player = 0;
 	declare Integer DoubleDamagePickup for Player = 0;
 	declare PickedUp = False;
 	
-	if (PickupType == 1 && !HasWeaponRocket)
+	if (PickupType == 1 && (!HasWeaponRocket || MultiWeaponMode == 1))
 	{
 		HasWeaponRocket = True;
 		PickedUp = True;
+		if (AmmoRocket > -1)
+		{
+			AmmoRocket += GetAmmoPerPickup(1);
+		}
 	}
-	else if (PickupType == 2 && !HasWeaponLaser)
+	else if (PickupType == 2 && (!HasWeaponLaser || MultiWeaponMode == 1))
 	{
 		HasWeaponLaser = True;
 		PickedUp = True;
+		if (AmmoLaser > -1)
+		{
+			AmmoLaser += GetAmmoPerPickup(2);
+		}
 	}
-	else if (PickupType == 3 && !HasWeaponNucleus)
+	else if (PickupType == 3 && (!HasWeaponNucleus || MultiWeaponMode == 1))
 	{
 		HasWeaponNucleus = True;
 		PickedUp = True;
+		if (AmmoNucleus > -1)
+		{
+			AmmoNucleus += GetAmmoPerPickup(3);
+		}
 	}
-	else if (PickupType == 4 && !HasWeaponArrow)
+	else if (PickupType == 4 && (!HasWeaponArrow || MultiWeaponMode == 1))
 	{
 		HasWeaponArrow = True;
 		PickedUp = True;
+		if (AmmoArrow > -1)
+		{
+			AmmoArrow += GetAmmoPerPickup(4);
+		}
 	}
 	else if (PickupType == 5 && Player.Armor < ArmorGainMax)
 	{
@@ -308,7 +392,8 @@ Boolean HandlePickup(CSmObject Object, CSmPlayer Player)
 		if (!TmpObject)
 		{
 			DoubleDamagePickup = Now;
-			//PowerUp::AddPowerup(Player, "powerup.doubleDamage", Now + DoubleDamageTime);
+			//PowerUp::AddPowerup(Player, "powerup.doubleDamage", Now + DoubleDamageTime);<quad style="Icons64x64_2" substyle="UnknownElimination" />
+			StatusEffects::AddPlayerEffect(Player, "DoubleDamage", "powerup.doubleDamage", "Icons64x64_2", "UnknownElimination", Now + DoubleDamageTime);
 		}
 		else
 		{
@@ -482,6 +567,10 @@ Void SwitchWeaponBy_Do(CSmPlayer Player, Integer By, Integer P_RequestedWeapon)
 	declare HasWeaponLaser for Player = False;
 	declare HasWeaponNucleus for Player = False;
 	declare HasWeaponArrow for Player = False;
+	declare AmmoRocket for Player = 0;
+	declare AmmoLaser for Player = 0;
+	declare AmmoNucleus for Player = 0;
+	declare AmmoArrow for Player = 0;
 	
 	if (RequestedWeapon < 1)
 	{
@@ -499,19 +588,19 @@ Void SwitchWeaponBy_Do(CSmPlayer Player, Integer By, Integer P_RequestedWeapon)
 		HasWeaponNucleus = True;
 		HasWeaponArrow = True;
 	}
-	if (RequestedWeapon == 1 && !HasWeaponRocket)
+	if (RequestedWeapon == 1 && (!HasWeaponRocket || (MultiWeaponMode == 1 && AmmoRocket == 0)))
 	{
 		SwitchWeaponBy_Do(Player, By, RequestedWeapon + By);
 	}
-	else if (RequestedWeapon == 2 && !HasWeaponLaser)
+	else if (RequestedWeapon == 2 && (!HasWeaponLaser || (MultiWeaponMode == 1 && AmmoRocket == 0)))
 	{
 		SwitchWeaponBy_Do(Player, By, RequestedWeapon + By);
 	}
-	else if (RequestedWeapon == 3 && !HasWeaponNucleus)
+	else if (RequestedWeapon == 3 && (!HasWeaponNucleus || (MultiWeaponMode == 1 && AmmoRocket == 0)))
 	{
 		SwitchWeaponBy_Do(Player, By, RequestedWeapon + By);
 	}
-	else if (RequestedWeapon == 4 && !HasWeaponArrow)
+	else if (RequestedWeapon == 4 && (!HasWeaponArrow || (MultiWeaponMode == 1 && AmmoRocket == 0)))
 	{
 		SwitchWeaponBy_Do(Player, By, RequestedWeapon + By);
 	}
