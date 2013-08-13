@@ -5,7 +5,6 @@
 	<flag.drop>%1 $z$s dropped the %2 $z$sflag</flag.drop>
 	<flag.return>%1 $z$s returned the %2 $z$sflag</flag.return>
 	<flag.reset>The %1 $s$zflag has returned</flag.reset>
-	<game.overtime>Overtime</game.overtime>
 	<top.damages>Top 5 Score</top.damages>
 	<top.captures>Top 5 Captures</top.captures>
 	<top.returns>Top 5 Returns</top.returns>
@@ -16,7 +15,10 @@
 	<game.win>%1 $z$swins the match!</game.win>
 	<game.draw>Draw match</game.draw>
 	<game.leaveWarning>Return to battle! ($f00%1$z s to elimination)</game.leaveWarning>
+	<game.overtime>Overtime</game.overtime>
 	<mode.rules>Two teams\n\n- Try to get to the enemy pole to grab the flag and bring it back to your flag.\n- The player who carries the flag is highlighted and the flag is marked.\n- You can only capture the flag if your flag is at your base.\n- If the one who has the flag dies, he drops the flag at his position.\n- It is reset after some seconds.\n- Match ends when either the score limit or the time limit is reached.\n- If both teams have equals scores at the end, winner is decided like this:\n  - If only on team has the enemy flag at this moment this team wins.\n  - Otherwise overtime starts. During overtime the teams wins, that reaches his targeted pole first (Yours if you have the flag, the enemies if you don't.) or if the flag carrier is eleminated.</mode.rules>
+	<hint.attacker>Attacker</hint.attacker>
+	<hint.defender>Defender</hint.defender>
 	<hint.drop>Press %1 to drop the flag</hint.drop>
 	<limit.score>Score limit</limit.score>
 	<limit.time>Time limit</limit.time>
