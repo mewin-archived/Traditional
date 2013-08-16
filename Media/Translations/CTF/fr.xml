@@ -5,7 +5,7 @@
     <flag.drop>%1 $z$sa perdu le Drapeau %2</flag.drop>
     <flag.return>%1 $z$sa récupéré le Drapeau %2</flag.return>
     <flag.reset>$s$z Le Drapeau %1 est retourné dans sa base </flag.reset>
-    <game.overtime>Overtime</game.overtime>
+    <game.overtime>Prolongation</game.overtime>
     <top.damages>Top 5 Score</top.damages>
     <top.captures>Top 5 Captures</top.captures>
     <top.returns>Top 5 Recupérations</top.returns>
