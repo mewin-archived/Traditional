@@ -52,8 +52,8 @@
 		<!-- Default : <setting name="WarmUpDuration" type="integer" value="0"/> -->
 		<!-- Default : <setting name="ItemRespawnTime" type="integer" value="60000"/> -->
 		<!-- Default : <setting name="KillLeavers" type="boolean" value="1"/> -->
-		<!-- Default : <setting name="TakeScore" type="integer" value="1"/> -->
-		<!-- Default : <setting name="CaptureScore" type="integer" value="4"/> -->
+		<!-- Default : <setting name="TakeScore" type="integer" value="4"/> -->
+		<!-- Default : <setting name="CaptureScore" type="integer" value="6"/> -->
 		<!-- Default : <setting name="ReturnScore" type="integer" value="5"/> -->
 		<!-- Default : <setting name="KillScore" type="integer" value="1"/> -->
 		<!-- Default : <setting name="WeaponMode" type="integer" value="6"/> -->
@@ -86,6 +86,18 @@
 	<map>
 		<file>Traditional\[CTF] Shouldn&apos;t You Sleep_.Map.Gbx</file>
 		<ident>RKhKV0HMyw2RjOwU030cOam6FPb</ident>
+	</map>
+	<map>
+		<file>Traditional\[CTF] Battlefield.Map.Gbx</file>
+		<ident>rWQ93RF_LtnXgYlff7sW6AusH5g</ident>
+	</map>
+	<map>
+		<file>Traditional\[CTF] Nightshift.Map.Gbx</file>
+		<ident>oA_ekSoxkOY3SPweio7j0ogdu1h</ident>
+	</map>
+	<map>
+		<file>﻿Traditional\[CTF] Petit à Petit.Map.Gbx</file>
+		<ident>smpuj2mtGl3BG0n6y6zP8Ua1jA6</ident>
 	</map>
 	<map>
 		<file>Traditional\[CTF] Strike.Map.Gbx</file>
