@@ -1,0 +1,152 @@
+#Include "MathLib" as MathLib
+#Include "Libs/Mewin/Common/Lang.Script.txt" as Lang
+
+declare Text[Text][Ident] EffectStyles;
+declare Text[Text][Ident] EffectSubStyles;
+declare Text[Text][Ident] EffectImages;
+declare Text[Text][Ident] EffectNames;
+declare Integer[Text][Ident] EffectEndTimes;
+declare Ident[Ident] LayerIds;
+
+Void AddPlayerEffect(CSmPlayer Player, Text Id, Text Desc, Text Style, Text SubStyle, Integer TimeEnd)
+{
+	if (!Player.IsBot)
+	{
+		if (!EffectImages.existskey(Player.Id))
+		{
+			EffectImages[Player.Id] = Text[Text];
+			EffectNames[Player.Id] = Text[Text];
+			EffectEndTimes[Player.Id] = Integer[Text];
+			EffectStyles[Player.Id] = Text[Text];
+			EffectSubStyles[Player.Id] = Text[Text];
+		}
+		
+		EffectImages[Player.Id][Id] = "";
+		EffectNames[Player.Id][Id] = Lang::GetUserTranslation(Desc, Player.User);
+		EffectEndTimes[Player.Id][Id] = TimeEnd;
+		EffectStyles[Player.Id][Id] = Style;
+		EffectSubStyles[Player.Id][Id] = SubStyle;
+	}
+}
+
+Void AddPlayerEffect(CSmPlayer Player, Text Id, Text Desc, Text Image, Integer TimeEnd)
+{
+	if (!Player.IsBot)
+	{
+		if (!EffectImages.existskey(Player.Id))
+		{
+			EffectImages[Player.Id] = Text[Text];
+			EffectNames[Player.Id] = Text[Text];
+			EffectEndTimes[Player.Id] = Integer[Text];
+		}
+		
+		EffectImages[Player.Id][Id] = Image;
+		EffectNames[Player.Id][Id] = Lang::GetUserTranslation(Desc, Player.User);
+		EffectEndTimes[Player.Id][Id] = TimeEnd;
+		EffectStyles[Player.Id][Id] = "";
+		EffectSubStyles[Player.Id][Id] = "";
+	}
+}
+
+Void RemovePlayerEffect(CSmPlayer Player, Text Id)
+{
+	if (EffectImages.existskey(Player.Id) && EffectImages[Player.Id].existskey(Id))
+	{
+		EffectImages[Player.Id].removekey(Id);
+		EffectNames[Player.Id].removekey(Id);
+		EffectEndTimes[Player.Id].removekey(Id);
+	}
+}
+
+Void ClearEffects(CSmPlayer Player)
+{
+	if (Player == Null)
+	{
+		foreach (_Player in AllPlayers)
+		{
+			ClearEffects(_Player);
+		}
+	}
+	else
+	{
+		EffectImages.removekey(Player.Id);
+		EffectNames.removekey(Player.Id);
+		EffectEndTimes.removekey(Player.Id);
+		EffectStyles.removekey(Player.Id);
+		EffectSubStyles.removekey(Player.Id);
+	}
+}
+
+Text GenerateML(CSmPlayer Player)
+{
+	declare ML = """
+		<frame posn="-160 60">""";
+			if (EffectImages.existskey(Player.Id))
+			{
+				declare Text[] EffectsToRemove;
+				declare PosY = 0;
+				foreach (Id => Image in EffectImages[Player.Id])
+				{
+					declare Desc = EffectNames[Player.Id][Id];
+					declare TimeEnd = EffectEndTimes[Player.Id][Id];
+					declare Style = EffectStyles[Player.Id][Id];
+					declare SubStyle = EffectSubStyles[Player.Id][Id];
+					
+					ML ^= """<frame posn="0 {{{PosY}}}">
+								<quad posn="0 0" sizen="7 7" image="{{{Image}}}" style="{{{Style}}}" substyle="{{{SubStyle}}}" />
+								<label posn="14 -1" text="{{{Desc}}}" />""";
+					if (TimeEnd > -1)
+					{
+						if (TimeEnd < Now)
+						{
+							EffectsToRemove.add(Id);
+						}
+						else
+						{
+							ML ^= """<label style="TextRaceChrono" scale="0.7" posn="7 0" text="{{{MathLib::CeilingInteger((TimeEnd - Now) / 1000.)}}}" />""";
+						}
+					}
+					ML ^= "</frame>";
+					foreach (Id in EffectsToRemove)
+					{
+						EffectImages[Player.Id].removekey(Id);
+						EffectNames[Player.Id].removekey(Id);
+						EffectEndTimes[Player.Id].removekey(Id);
+						EffectStyles[Player.Id].removekey(Id);
+						EffectSubStyles[Player.Id].removekey(Id);
+					}
+					PosY += 7;
+				}
+			}
+		ML ^= """</frame>
+	""";
+	
+	return ML;
+}
+
+Void Loop()
+{
+	foreach (Player in AllPlayers)
+	{
+		if (!Player.IsBot)
+		{
+			declare CUILayer Layer;
+			if (LayerIds.existskey(Player.Id) && UIManager.UILayers.existskey(LayerIds[Player.Id]))
+			{
+				Layer = UIManager.UILayers[LayerIds[Player.Id]];
+			}
+			else
+			{
+				Layer = UIManager.UILayerCreate();
+				LayerIds[Player.Id] = Layer.Id;
+			}
+			
+			if (!UIManager.GetUI(Player).UILayers.exists(Layer))
+			{
+				UIManager.GetUI(Player).UILayers.add(Layer);
+			}
+			
+			Layer.ManialinkPage = GenerateML(Player);
+		}
+	}
+}

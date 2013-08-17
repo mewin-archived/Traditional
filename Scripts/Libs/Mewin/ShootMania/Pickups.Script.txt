@@ -230,6 +230,44 @@ Void SpawnItems()
 	}
 }
 
+Boolean MapHasPickups(Integer[] Types)
+{
+	foreach (Pole in BlockPoles)
+	{
+		if (Pole.Tag == "Pickup" && Types.exists(Pole.Order))
+		{
+			return True;
+		}
+	}
+	
+	foreach (Anchor in ObjectAnchors)
+	{
+		declare ItemOrder = 0;
+		switch (Replace(Anchor.ItemName, "\\", "/"))
+		{
+			case RocketItemPath:
+				ItemOrder = 1;
+			case LaserItemPath:
+				ItemOrder = 2;
+			case NucleusItemPath:
+				ItemOrder = 3;
+			case ArrowItemPath:
+				ItemOrder = 4;
+			case ArmorItemPath:
+				ItemOrder = 5;
+			case DoubleDamageItemPath:
+				ItemOrder = 6;
+		}
+		
+		if (ItemOrder > 0 && Types.exists(ItemOrder))
+		{
+			return True;
+		}
+	}
+	
+	return False;
+}
+
 Void OnPlayerSpawn(CSmPlayer Player, CSmMode::EWeapon DefaultWeapon, Integer MaxAmmo, Integer ArmorMax, Real Gain, Boolean AllowSwitch)
 {
 	declare CurrentWeapon for Player = 1;
@@ -243,7 +281,7 @@ Void OnPlayerSpawn(CSmPlayer Player, CSmMode::EWeapon DefaultWeapon, Integer Max
 	declare AmmoArrow for Player = 0;
 	declare Integer DoubleDamagePickup for Player;
 							
-	DoubleDamagePickup = 0;
+	DoubleDamagePickup = -DoubleDamageTime;
 	
 	if (!AllWeapons)
 	{
@@ -307,8 +345,7 @@ Void OnPlayerSpawn(CSmPlayer Player, CSmMode::EWeapon DefaultWeapon)
 
 Boolean HasDoubleDamage(CSmPlayer Player)
 {
-	declare DoubleDamagePickup for Player = 0;
-	
+	declare DoubleDamagePickup for Player = -DoubleDamageTime;
 	return DoubleDamagePickup + DoubleDamageTime > Now;
 }
 
@@ -742,4 +779,11 @@ Void UpdateML(CSmPlayer Player)
 	{
 		UILayers[Player.Id].ManialinkPage = GetML(Player);
 	}
+}
+
+Void RemoveML(CSmPlayer Player)
+{
+	if (Player.IsBot) return;
+	if (!UILayers.existskey(Player.Id) || !UIManager.GetUI(Player).UILayers.exists(UILayers[Player.Id])) return;
+	UIManager.GetUI(Player).UILayers.remove(UILayers[Player.Id]);
 }
