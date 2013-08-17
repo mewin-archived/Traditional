@@ -17,6 +17,7 @@
 #Include "Libs/Nadeo/TabsServer.Script.txt" as Tabs
 #Include "Libs/Nadeo/ShootMania/ScoresTable.Script.txt" as ScoresTable
 #Include "Libs/Nadeo/ShootMania/SpawnScreen.Script.txt" as SpawnScreen
+#Include "Libs/Nadeo/Interface.Script.txt" 				as Slider
 
 #Include "Libs/Mewin/ShootMania/Multikill.Script.txt" as Multikill
 #Include "Libs/Mewin/ShootMania/Sound.Script.txt" as Sound
@@ -99,8 +100,8 @@
 // ------- Constants ----------- // Do not modify
 #Const		Debug						False
 /// ------ Informational ------ ///
-#Const		VersionNum					"2.0-a0.4"
-#Const		Version						"2013-08-16"
+#Const		VersionNum					"2.0-a0.5"
+#Const		Version						"2013-08-18"
 /// ------ Model Paths -------- ///
 #Const		RedFlagPath					"CTF/RedFlag.Item.gbx"
 #Const		BlueFlagPath				"CTF/BlueFlag.Item.gbx"
@@ -129,6 +130,13 @@ SpawnScreen::CreateScores();
 Tabs::UseTabs(UI, "ScoresTab");
 Tabs::AlwaysShowScore(UI, True);
 ScoresTable::RestoreCustomScores(Player);
+Slider::ShowSlider(Player, 0);
+Slider::HideSlider(Player, 5000);
+***
+
+***NewSpectator***
+***
+Slider::ShowSlider(Player, 0);
 ***
 
 ***Update***
@@ -165,6 +173,17 @@ if (WeaponMode == 6 && FallbackWeaponMode != 6)
 		log("INFO: Falling back to weapon mode " ^ FallbackWeaponMode);
 	}
 }
+
+Slider::CreateSlider();
+Slider::SetSliderAnimation(<-210., 40.>, <-160., 40.>);
+Slider::AddSlide(1, "Top", _("Top Hit"), "Hit");
+Slider::AddSlide(2, "Top", _("Top Attack"), "Atk");
+Slider::AddSlide(3, "Top", _("Top Defense"), "Def");
+***
+
+***MatchEnd***
+***
+Slider::DestroySlider();
 ***
 
 ***RoundBegin***
@@ -178,10 +197,22 @@ foreach (Player in AllPlayers)
 
 ***EndRound***
 ***
+StartTime = -1;
+EndTime = -1;
+
+ObjectDestroyAll();
+XmlRpc::EndRound(Round);
 Message::CleanAllMessages();
 foreach (Player in AllPlayers)
 {
 	Pickup::RemoveML(Player);
+	Slider::ShowSlider(Player, 0);
+	if(!Player.IsFakePlayer)
+	{
+		declare PlayerUI <=> UIManager.GetUI(Player);
+	
+		Sound::AddUILayer(Player);
+	}
 }
 ***
 
@@ -1139,6 +1170,9 @@ Void _SpawnPlayer(CSmPlayer Player, Integer time)
 	
 	Pickup::OnPlayerSpawn(Player, Weapon, MaxAmmo, ArmorMax, Gain, AllowSwitch);
 	SM::SpawnPlayer(Player, Player.RequestedClan, BlockSpawns[SpawnId], time);
+	
+	Slider::ShowSlider(Player, 0);
+	Slider::HideSlider(Player, 5000);
 }
 
 Void DropFlag(CSmPlayer Player, Integer Clan)
@@ -1241,9 +1275,12 @@ Void UpdateFlagPositions()
 			}
 			else
 			{
-				UpdatePlayerVelocity(AllPlayers[FlagCarrier[Clan]]);
-				declare Velocity for AllPlayers[FlagCarrier[Clan]] = <0., 0., 0.>;
-				FlagObjects[3 - Clan].SetPositionAndVel(AllPlayers[FlagCarrier[Clan]].Position + <0., 1., 0.>, Velocity);
+				declare Player = AllPlayers[FlagCarrier[Clan]];
+				//UpdatePlayerVelocity(AllPlayers[FlagCarrier[Clan]]);
+				//declare Velocity for AllPlayers[FlagCarrier[Clan]] = <0., 0., 0.>;
+				log (AllPlayers[FlagCarrier[Clan]].AimDirection);
+				FlagObjects[3 - Clan].SetPositionAndVel(Player.Position + <Player.AimDirection.X * -0.3, 0.5, Player.AimDirection.Z * -0.3>, Player.AimDirection * -1);
+				//FlagObjects[3 - Clan].SetPlayer(AllPlayers[FlagCarrier[Clan]]);
 			}
 		}
 	}
@@ -1378,9 +1415,9 @@ main()
 		//Init Tabs
 		Tabs::Load();
 		declare TabsLayer <=> Tabs::CreateTabPaneLayer(
-		[
-			"ScoresTab" => "Rankings", 
+		[ 
 			"TopTab"	=> "Buddies",
+			"ScoresTab" => "Rankings",
 			"SettingsTab" => "Advanced"
 			
 		], 5, -5, False);
@@ -1573,7 +1610,7 @@ main()
 				foreach(SpawnId in G_BlockSpawnQueue[MapSidesIndices[Clan]])
 				{
 					BlockSpawns[SpawnId].Base.IsActive = True;
-					BlockSpawns[SpawnId].Base.Clan = Clan; //WTF IS WRONG HERE?!
+					BlockSpawns[SpawnId].Base.Clan = Clan; //WTF IS WRONG HERE?! -> Pickups?!
 				}
 			}
 			BotPlayers.clear();
@@ -2180,23 +2217,8 @@ main()
 			///////////////////////////////////////////////////	
 			// end round sequence	
 			+++EndRound+++
-			StartTime = -1;
-			EndTime = -1;
 			
-			ObjectDestroyAll();
-			XmlRpc::EndRound(Round);
-			
-			foreach(Player in Players)
-			{
-				if(!Player.IsFakePlayer)
-				{
-					declare PlayerUI <=> UIManager.GetUI(Player);
-				
-					Sound::AddUILayer(Player);
-				}
-			}
-			
-			sleep(2000);
+			sleep(4000);
 			
 			foreach(Player in Players) {
 				declare UI <=> UIManager.GetUI(Player);
@@ -2245,7 +2267,7 @@ main()
 				UnspawnPlayer(Player);					
 			}
 
-			sleep(6000);
+			sleep(4000);
 						
 			+++RoundEnd+++	
 			Score::RoundEnd();
