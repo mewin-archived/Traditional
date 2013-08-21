@@ -46,6 +46,8 @@ Void LoadLanguage(Text FileName)
 			}
 		}
 	}
+	
+	Http.Destroy(Request);
 }
 
 Text GetTranslation(Text _Name, Text _Lang)

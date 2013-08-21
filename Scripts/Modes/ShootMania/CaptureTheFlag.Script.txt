@@ -24,6 +24,7 @@
 #Include "Libs/Mewin/Common/Lang.Script.txt" as Lang
 #Include "Libs/Mewin/ShootMania/Pickups.Script.txt" as Pickup
 #Include "Libs/Mewin/ShootMania/StatusEffects.Script.txt" as StatusEffects
+//#Include "Libs/Mewin/Common/ServerList.Script.txt" as ServerList
 
 // Game Rules
 #Setting 	WinLimit					2				as "rounds to win"
@@ -46,6 +47,7 @@
 #Setting	AmmoGain					1.				as "ammo gain factor"
 #Setting	AmmoMax						4				as "maximum ammo"
 #Setting	InactiveWeaponReload		True			as "reload inactive weapons"
+#Setting	LimitAmmo					True			as "limit ammo"
 #Setting	ArmorMax					200				as "default armor"
 #Setting	ArmorGainMax				400				as "maximum armor"
 #Setting	BotsFill					4				as "fill up bot count"
@@ -100,8 +102,8 @@
 // ------- Constants ----------- // Do not modify
 #Const		Debug						False
 /// ------ Informational ------ ///
-#Const		VersionNum					"2.0-a0.5"
-#Const		Version						"2013-08-18"
+#Const		VersionNum					"2.0-a0.6"
+#Const		Version						"2013-08-19"
 /// ------ Model Paths -------- ///
 #Const		RedFlagPath					"CTF/RedFlag.Item.gbx"
 #Const		BlueFlagPath				"CTF/BlueFlag.Item.gbx"
@@ -143,11 +145,13 @@ Slider::ShowSlider(Player, 0);
 ***
 Message::Loop();
 StatusEffects::Loop();
+//ServerList::Loop();
 ***
 
 ***InitServer***
 ***
-declare tmp = Poles.count;
+log("");
+//ServerList::RegisterServer("""&version={{{VersionNum}}}""");
 ***
 
 ***MatchBegin***
@@ -173,6 +177,15 @@ if (WeaponMode == 6 && FallbackWeaponMode != 6)
 		log("INFO: Falling back to weapon mode " ^ FallbackWeaponMode);
 	}
 }
+	
+if (!NeedFallback)
+{
+	Pickup::SetLimitAmmo(LimitAmmo);
+}
+else
+{
+	Pickup::SetLimitAmmo(False);
+}
 
 Slider::CreateSlider();
 Slider::SetSliderAnimation(<-210., 40.>, <-160., 40.>);
@@ -193,6 +206,7 @@ foreach (Player in AllPlayers)
 {
 	Pickup::RemoveML(Player);
 }
+//ServerList::UpdateRoundInfo("");
 ***
 
 ***EndRound***
@@ -1175,7 +1189,7 @@ Void _SpawnPlayer(CSmPlayer Player, Integer time)
 	Slider::HideSlider(Player, 5000);
 }
 
-Void DropFlag(CSmPlayer Player, Integer Clan)
+Void DropFlag(CSmPlayer Player, Integer Clan, Vec3 Pos)
 {
 	declare FlagDropTime for Player = 0;
 	
@@ -1190,7 +1204,7 @@ Void DropFlag(CSmPlayer Player, Integer Clan)
 	
 	Lang::SendBigMessage("flag.drop", 2000, PriorityDrop, PlayerName(Player, Clan), Teams[2 - Clan].ColorizedName);
 	Sound::PlaySoundAll("Flag.Drop." ^ Player.CurrentClan);
-	FlagObjects[3 - Clan].SetPositionAndVel(Player.Position + <0., 1., 0.>, Velocity * 0.5);
+	FlagObjects[3 - Clan].SetPositionAndVel(Pos, Velocity * 0.5);
 	
 	if (Player.IsBot)
 	{
@@ -1216,7 +1230,7 @@ Void DropFlag(CSmPlayer Player)
 		return;
 	}
 	
-	DropFlag(Player, Clan);
+	DropFlag(Player, Clan, Player.Position + <0., 1., 0.>);
 }
 
 Void TakeFlag(CSmPlayer Player, Boolean GetScore)
@@ -1271,14 +1285,13 @@ Void UpdateFlagPositions()
 			}
 			else if (AllPlayers[FlagCarrier[Clan]].RequestsSpectate)
 			{
-				DropFlag(AllPlayers[FlagCarrier[Clan]], Clan);
+				DropFlag(AllPlayers[FlagCarrier[Clan]], Clan, AllPlayers[FlagCarrier[Clan]].Position + <0., 1., 0.>);
 			}
 			else
 			{
 				declare Player = AllPlayers[FlagCarrier[Clan]];
 				//UpdatePlayerVelocity(AllPlayers[FlagCarrier[Clan]]);
 				//declare Velocity for AllPlayers[FlagCarrier[Clan]] = <0., 0., 0.>;
-				log (AllPlayers[FlagCarrier[Clan]].AimDirection);
 				FlagObjects[3 - Clan].SetPositionAndVel(Player.Position + <Player.AimDirection.X * -0.3, 0.5, Player.AimDirection.Z * -0.3>, Player.AimDirection * -1);
 				//FlagObjects[3 - Clan].SetPlayer(AllPlayers[FlagCarrier[Clan]]);
 			}
@@ -1578,14 +1591,14 @@ main()
 			Score::RoundBegin();
 			Airshot::RoundBegin();
 			Victory::RoundBegin();
+			StartTime = Now + RespawnTime;
+			---EndTime---
 			+++RoundBegin+++
 				
 			SM::SetupDefaultVisibility();
 
 			declare LatestUITick = Now;
 			
-			StartTime = Now + RespawnTime;
-			---EndTime---
 			
 			Multikill::ResetFirstBlood();
 			MapSidesIndices = [1=>(Round % 2)+1, 2=>2-(Round % 2)];
@@ -1794,6 +1807,11 @@ main()
 							{
 								Top::SetRecord(Event.Shooter, "Hit", TextLib::ToText(HitScore), -HitScore);
 							}
+							
+							if (Event.Damage >= Event.Victim.Armor)
+							{
+								DropFlag(Event.Victim);
+							}
 							PassOn(Event);
 						}
 					}
@@ -1840,10 +1858,10 @@ main()
 							Lang::SendBigMessage("flag.drop", 2000, PriorityDrop, PlayerName(Event.Victim), Teams[2 - Event.Victim.CurrentClan].ColorizedName);
 							FlagObjects[3 - Event.Victim.CurrentClan].SetPositionAndVel(Poles[3 - Event.Victim.CurrentClan].Position, <0., 0., 0.>);
 						}
-						else if(Event.Victim != Null)
+						/*else if(Event.Victim != Null && FlagCarrier[Event.Victim.CurrentClan] == Event.Victim.Id)
 						{
-							DropFlag(Event.Victim);
-						}
+							DropFlag(Event.Victim, Event.Victim.CurrentClan, Event.PlayerLastPosition);
+						}*/ //moved to onhit
 						PassOn(Event);						
 						XmlRpc::OnArmorEmpty(Event);
 					}
@@ -1940,6 +1958,10 @@ main()
 					{
 						log (Event.CommandName);
 						log (Event.CommandValueInteger);
+					}
+					else if (Event.Type == CSmModeEvent::EType::OnShoot)
+					{
+						Pickup::OnShoot(Event.Shooter);
 					}
 					else
 					{
@@ -2209,6 +2231,7 @@ main()
 					UIManager.UIAll.UILayers.add(LayerRoundInfo);
 					UIManager.UIAll.UILayers.add(LayerVersion);	
 					UIManager.UIAll.UILayers.add(LayerMarkers);
+					UIManager.UIReplayLayers.add(LayerRoundInfo);
 				}
 				yield;
 				///////////////////////////////////////////////////				
