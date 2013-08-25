@@ -19,6 +19,7 @@
 #Include "Libs/Nadeo/ShootMania/SpawnScreen.Script.txt" as SpawnScreen
 #Include "Libs/Nadeo/Interface.Script.txt" 				as Slider
 
+//#Include "Libs/Mewin/ShootMania/Radar.Script.txt" as Radar
 #Include "Libs/Mewin/ShootMania/Multikill.Script.txt" as Multikill
 #Include "Libs/Mewin/ShootMania/Sound.Script.txt" as Sound
 #Include "Libs/Mewin/Common/Lang.Script.txt" as Lang
@@ -55,7 +56,7 @@
 
 // ------- Additional Settings - //
 #Const		SelfDamage					False			//damage yourself (i.e. with nucleus)
-#Const		UITickPeriod				100				//period for ui ticks -> higher values lower cpu usage
+#Const		UITickPeriod				50				//period for ui ticks -> higher values lower cpu usage
 #Const		RespawnTime					6001			//respawn time (in ms; min. 6001)
 #Const		AutoBalance					True
 #Const		EnableMultiLang				True			//enable multiple languages
@@ -102,8 +103,8 @@
 // ------- Constants ----------- // Do not modify
 #Const		Debug						False
 /// ------ Informational ------ ///
-#Const		VersionNum					"2.0-a0.6"
-#Const		Version						"2013-08-19"
+#Const		VersionNum					"2.0-b1.0"
+#Const		Version						"2013-08-21"
 /// ------ Model Paths -------- ///
 #Const		RedFlagPath					"CTF/RedFlag.Item.gbx"
 #Const		BlueFlagPath				"CTF/BlueFlag.Item.gbx"
@@ -148,10 +149,16 @@ StatusEffects::Loop();
 //ServerList::Loop();
 ***
 
+/****UITick***
+***
+log("");
+****/
+
 ***InitServer***
 ***
 log("");
 //ServerList::RegisterServer("""&version={{{VersionNum}}}""");
+//Radar::Init();
 ***
 
 ***MatchBegin***
@@ -207,6 +214,9 @@ foreach (Player in AllPlayers)
 	Pickup::RemoveML(Player);
 }
 //ServerList::UpdateRoundInfo("");
+//Radar::Destroy();
+//Radar::AddTarget(Poles[1].Position, "");
+//Radar::AddTarget(Poles[2].Position, "");
 ***
 
 ***EndRound***
@@ -217,6 +227,7 @@ EndTime = -1;
 ObjectDestroyAll();
 XmlRpc::EndRound(Round);
 Message::CleanAllMessages();
+//Radar::Destroy();
 foreach (Player in AllPlayers)
 {
 	Pickup::RemoveML(Player);
@@ -425,6 +436,7 @@ CSmPlayer _CreateBotPlayer(Integer Clan, Integer time)
 	declare CSmPlayer Player;
 	
 	Player = CreateBotPlayer(ModelId, Clan, ArmorMax, BlockSpawns[SpawnId], time);
+	Pickup::OnPlayerSpawn(Player, Weapon, MaxAmmo, ArmorMax, Gain, AllowSwitch);
 	
 	SetPlayerWeapon(Player, Weapon, AllowSwitch);
 	SetPlayerAmmoMax(Player, Weapon, MaxAmmo);
@@ -562,11 +574,16 @@ Void UpdateBot(CSmPlayer Player)
 		{
 			TargetMode = 1;
 			Target = Player.Position;
-			if (Player.Driver.Target == Null || _Player.Id == FlagCarrier[_Player.CurrentClan])
+			if (Player.Driver.Target == Null || _Player.CurrentClan > 0 && _Player.Id == FlagCarrier[_Player.CurrentClan])
 			{
 				Player.Driver.ForcedTarget = _Player;
 			}
 		}
+	}
+	
+	if (Player.Driver.ForcedTarget != Null && (Player.Driver.ForcedTarget.SpawnStatus != CSmPlayer::ESpawnStatus::Spawned || MathLib::Distance(Player.Driver.ForcedTarget.Position, Player.Position) > Player.Driver.AggroRadius * 2))
+	{
+		Player.Driver.ForcedTarget = Null;
 	}
 	
 	if (Player.Driver.IsStuck)
@@ -634,19 +651,19 @@ Void UpdateBot(CSmPlayer Player)
 		declare Boolean HasWeaponArrow for Player;
 		
 		declare Dist = MathLib::Distance(Player.Position, Player.Driver.Target.Position);
-		if (Dist < 5. && HasWeaponNucleus)
+		if (Dist < 5. && HasWeaponNucleus && Pickup::GetAmmo(Player, 3) != 0)
 		{
 			Pickup::SwitchWeapon(Player, CSmModeEvent::EActionSlots::Activable3);
 		}
-		else if (Dist < 10. && HasWeaponRocket)
+		else if (Dist < 10. && HasWeaponRocket && Pickup::GetAmmo(Player, 1) != 0)
 		{
 			Pickup::SwitchWeapon(Player, CSmModeEvent::EActionSlots::Activable1);
 		}
-		else if (Dist < 15. && HasWeaponLaser)
+		else if (Dist < 15. && HasWeaponLaser && Pickup::GetAmmo(Player, 2) != 0)
 		{
 			Pickup::SwitchWeapon(Player, CSmModeEvent::EActionSlots::Activable2);
 		}
-		else if (HasWeaponArrow)
+		else if (HasWeaponArrow && Pickup::GetAmmo(Player, 4) != 0)
 		{
 			Pickup::SwitchWeapon(Player, CSmModeEvent::EActionSlots::Activable4);
 		}
@@ -847,7 +864,7 @@ Text GetMLEvents(CUser User)
 					}
 				}
 				--></script>
-				<label posn="0 -60" halign="center" id="LabelDrop" style="TextInfoSmall">{{{TextLib::Compose(Lang::GetUserTranslation("hint.drop", User), "F3")}}}</label>""";
+				<label posn="0 -40" halign="center" id="LabelDrop" style="TextInfoSmall">{{{TextLib::Compose(Lang::GetUserTranslation("hint.drop", User), "F3")}}}</label>""";
 				
 	return ML;
 }
@@ -1203,7 +1220,9 @@ Void DropFlag(CSmPlayer Player, Integer Clan, Vec3 Pos)
 	FlagCarrier[Clan] = NullId;
 	
 	Lang::SendBigMessage("flag.drop", 2000, PriorityDrop, PlayerName(Player, Clan), Teams[2 - Clan].ColorizedName);
-	Sound::PlaySoundAll("Flag.Drop." ^ Player.CurrentClan);
+	//Sound::PlaySoundAll("Flag.Drop." ^ Player.CurrentClan);
+	Sound::PlaySoundClan("Flag.Drop.Ally", 3 - Clan);
+	Sound::PlaySoundClan("Flag.Drop.Enemy", Clan);
 	FlagObjects[3 - Clan].SetPositionAndVel(Pos, Velocity * 0.5);
 	
 	if (Player.IsBot)
@@ -1264,7 +1283,9 @@ Void TakeFlag(CSmPlayer Player, Boolean GetScore)
 		HasFlag = True;
 	}
 	
-	Sound::PlaySoundAll("Flag.Take." ^ Player.CurrentClan);
+	//Sound::PlaySoundAll("Flag.Take." ^ Player.CurrentClan);
+	Sound::PlaySoundClan("Flag.Take.Enemy", 3 - Clan);
+	Sound::PlaySoundClan("Flag.Take.Ally", Clan);
 	FlagObjects[Clan].SetPlayer(Player);
 	
 	if (Player.IsBot)
@@ -1517,7 +1538,8 @@ main()
 			Sound::PreCacheSound("Flag.Take." ^ Clan);
 			Sound::PreCacheSound("Team.Lead." ^ Clan);
 			Sound::PreCacheSound("Team.Score." ^ Clan);
-			Sound::PreCacheSound("Team.Win." ^ Clan);
+			Sound::PreCacheSound("Team.WinRound." ^ Clan);
+			Sound::PreCacheSound("Team.WinMatch." ^ Clan);
 		}
 		
 		Sound::PreCacheSound("Overtime");
@@ -1593,7 +1615,6 @@ main()
 			Victory::RoundBegin();
 			StartTime = Now + RespawnTime;
 			---EndTime---
-			+++RoundBegin+++
 				
 			SM::SetupDefaultVisibility();
 
@@ -1650,6 +1671,7 @@ main()
 				
 				FlagObjects[Clan].SetPositionAndVel(Pole.Position, <0., 0., 0.>);
 			}
+			+++RoundBegin+++
 			declare Ident[] InitedPlayers;
 			while ( Victory::NoRoundWinner() && !MatchEndRequested )
 			{
@@ -1900,7 +1922,9 @@ main()
 								Score::AddPoints(Event.Player, ReturnScore);
 								Lang::SendBigMessage("flag.return", 2000, PriorityReturn, PlayerName(Event.Player), Teams[Clan - 1].ColorizedName);
 								Event.Object.SetPositionAndVel(Poles[Clan].Position, <0., 0., 0.>);
-								Sound::PlaySoundAll("""Flag.Return.{{{3 - Clan}}}""");
+								//Sound::PlaySoundAll("""Flag.Return.{{{3 - Clan}}}""");
+								Sound::PlaySoundClan("Flag.Return.Ally", Clan);
+								Sound::PlaySoundClan("Flag.Return.Enemy", 3 - Clan);
 							}
 							else if (FlagCarrier[3 - Clan] == NullId && Event.Player.CurrentClan != Clan)
 							{
@@ -1999,7 +2023,6 @@ main()
 							{
 								Captures[3 - Clan] += 1;
 								Victory::SetRoundWinnerIfNoWinner(3 - Clan);
-								Sound::PlaySoundAll("Team.Win." ^ 3 - Clan);
 								break;
 							}
 							
@@ -2090,7 +2113,6 @@ main()
 								{
 									Captures[3 - Clan] += 1;
 									Victory::SetRoundWinnerIfNoWinner(3 - Clan);
-									Sound::PlaySoundAll("Team.Win." ^ 3 - Clan);
 								}
 								break;
 							}
@@ -2121,18 +2143,16 @@ main()
 								Score::AddPoints( Player, CaptureScore);
 								Lang::SendBigMessage("flag.capture", 2000, PriorityCapture, PlayerName(Player), Teams[2 - Clan].ColorizedName);
 								
-								if (Captures[Clan] == Captures[3 - Clan])
+								/*if (Captures[Clan] == Captures[3 - Clan])
 								{
 									Sound::PlaySoundAll("Team.Lead." ^ 3 - Clan); //TODO: fix filenames
 								}
-								else if (ScoreLimit < 1 || Captures[Clan] < ScoreLimit - 1)
-								{
-									Sound::PlaySoundAll("Team.Score." ^ 3 - Clan);
-								}
 								else
 								{
-									Sound::PlaySoundAll("Team.Win." ^ Clan);
-								}
+									Sound::PlaySoundAll("Team.Score." ^ 3 - Clan);
+								}*/
+								Sound::PlaySoundClan("Flag.Capture.Ally", 3 - Clan);
+								Sound::PlaySoundClan("Flag.Capture.Enemy", Clan);
 								
 								Captures[Clan] += 1;
 								XmlRpc.SendCallback("poleCapture", Player.Login);
@@ -2147,16 +2167,14 @@ main()
 				}
 				
 				///////////////////////////////////////////////////
-				// Victory	
-				if(Now >= EndTime && EndTime > -1 && !Overtime) {
+				// Victory
+				if(Now >= EndTime - 500 && EndTime > -1 && !Overtime) {
 					if(Captures[1] > Captures[2])
 					{
-						Sound::PlaySoundAll("Team.Win.1");
 						Victory::SetRoundWinnerIfNoWinner(1);
 					}
 					else if(Captures[2] > Captures[1])
 					{
-						Sound::PlaySoundAll("Team.Win.2");
 						Victory::SetRoundWinnerIfNoWinner(2);
 					}
 					else if(FlagCarrier[1] != NullId && FlagCarrier[2] == NullId && OvertimeMode == 0)
@@ -2166,7 +2184,7 @@ main()
 					else if(OvertimeMode < 2)
 					{
 						Overtime = True;
-						StartTime = Now - 1000;
+						StartTime = Now - 500;
 						EndTime = -1;
 						Lang::SendBigMessage("game.overtime", 2000, PriorityOvertime);
 						Sound::PlaySoundAll("Overtime");
@@ -2183,7 +2201,7 @@ main()
 				{
 					Top::Loop();
 					LatestUITick = Now;
-					
+					+++UITick+++
 					declare ClanTotalRatios = [1=>0, 2=>0];
 					UpdateSettingsLayer();
 					LayerRoundInfo.ManialinkPage = GetMLRoundInfo();
@@ -2202,6 +2220,7 @@ main()
 						if (WeaponMode >= 6 && !NeedFallback)
 						{
 							Pickup::UpdateML(Player);
+							Sound::AddUILayer(Player);
 						}
 					}
 					
@@ -2242,7 +2261,14 @@ main()
 			+++EndRound+++
 			
 			sleep(4000);
-			
+			for (Clan, 1, 2)
+			{
+				if (Victory::IsRoundWinner(Clan))
+				{
+					Sound::PlaySoundClan("Team.Round.Win", Clan);
+					Sound::PlaySoundClan("Team.Round.Lost", 3 - Clan);
+				}
+			}
 			foreach(Player in Players) {
 				declare UI <=> UIManager.GetUI(Player);
 				if (UI==Null) continue;
@@ -2254,6 +2280,7 @@ main()
 				LayerEvents <=> Null;
 				
 				UI.BigMessage = "";
+				UI.BigMessageSound = CUIConfig::EUISound::Silence;
 			
 				if (Victory::IsRoundWinner(1))
 				{
@@ -2317,11 +2344,16 @@ main()
 			WinnerClan = 2;
 		}
 		
+		Sound::PlaySoundClan("Team.Match.Win", WinnerClan);
+		Sound::PlaySoundClan("Team.Match.Lost", 3 - WinnerClan);
+		
 		foreach(Player in Players)
 		{
 			declare UI <=> UIManager.GetUI(Player);
 			if(WinnerClan > -1)
+			{
 				UI.BigMessage = TextLib::Compose(Lang::GetUserTranslation("game.win", Player.User), Teams[WinnerClan - 1].ColorizedName);
+			}
 			else
 				UI.BigMessage = TextLib::Compose(Lang::GetUserTranslation("game.draw", Player.User));
 		}

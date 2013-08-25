@@ -23,6 +23,22 @@ Void PlaySoundAll(Text Name)
     {
         PlaySound(Player, Name);
     }
+
+	foreach (Player in Spectators)
+	{
+		PlaySound(Player, Name);
+	}
+}
+
+Void PlaySoundClan(Text Name, Integer Clan)
+{
+	foreach (Player in Players)
+	{
+		if (Player.CurrentClan == Clan)
+		{
+			PlaySound(Player, Name);
+		}
+	}
 }
 
 Void PreCacheSoundForPlayer(CSmPlayer Player, Text Name)

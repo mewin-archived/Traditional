@@ -7,10 +7,11 @@
 	<base>SMStorm</base>
 	<packaging>
 		<image name="PackImage.jpg" />
-		<logos name="Logos.png" />
+		<logos name="Logos-2.png" />
 		<collection></collection>
 		<sortindex>100</sortindex>
 		<station_manialink url="" />
+		<!--<station_manialink url="file://Media/Manialinks/Traditional_Station.xml" />-->
 		<boxcase_manialink url="" />
 	</packaging>
 	<menu>
@@ -44,23 +45,27 @@
 	<files>
 		<file name="Scripts\Modes\ShootMania\CaptureTheFlag.Script.txt" public="false" internal="false" />
 		<file name="Scripts\MapTypes\ShootMania\CTFArena.Script.txt" public="false" internal="false" />
-		<file name="Scripts\Modes\ShootMania\Domination.Script.txt" public="false" internal="true" />
-		<file name="Scripts\Modes\ShootMania\Infection.Script.txt" public="false" internal="true" />
-		<file name="Scripts\MapTypes\ShootMania\DominationArena.Script.txt" public="false" internal="true" />
+		<file name="Scripts\Modes\ShootMania\Domination.Script.txt" public="false" internal="false" />
+		<file name="Scripts\Modes\ShootMania\Infection.Script.txt" public="false" internal="false" />
 		<file name="Scripts\Modes\ShootMania\TeamDeathMatch.Script.txt" public="false" internal="false" />
+		<file name="Scripts\Modes\ShootMania\SnD.Script.txt" public="false" internal="false" />
 		<file name="Items\DoubleDamage.Item.gbx" public="false" internal="false" />
 		<file name="Items\Meshes\DoubleDamage.Mesh.gbx" public="false" internal="false" />
 		<file name="Items\Meshes\Texture\DoubleDamage_D.dds" public="false" internal="false" />
 		<file name="Items\Meshes\Texture\DoubleDamage_I.dds" public="false" internal="false" />
 		<file name="Items\Meshes\Texture\DoubleDamage_N.dds" public="false" internal="false" />
 		<file name="Items\Meshes\Texture\DoubleDamage_S.dds" public="false" internal="false" />
+		<file name="Scripts\MapTypes\ShootMania\DominationArena.Script.txt" public="false" internal="false" />
+		<file name="Scripts\MapTypes\ShootMania\SnDArena.Script.txt" public="false" internal="false" />
+		<file name="Maps\MatchSettings\Traditional-CTF.txt" public="false" internal="false" />
 	</files>
 	<folders>
 		<folder name="Items\CTF" public="false" internal="false" />
 		<folder name="Items\SMCommon" public="false" internal="false" />
 		<folder name="Media\Translations\CTF" public="false" internal="false" />
 		<folder name="Media\Translations\Multikill" public="false" internal="false" />
-		<folder name="Maps\Traditional" public="false" internal="true" />
+		<folder name="Maps\Traditional" public="false" internal="false" />
+		<folder name="Media\Sounds" public="false" internal="false" />
 	</folders>
 	<mod name="" />
 	<title_version></title_version>
