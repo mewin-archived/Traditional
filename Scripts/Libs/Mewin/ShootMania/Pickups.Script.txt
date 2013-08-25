@@ -12,6 +12,7 @@
 #Const		C_AmmoPerPickup				[1 => 10, 2 => 5, 3 => 7, 4 => 5]
 #Const		C_AmmoMax					[1 => 4, 2 => 1, 3 => 2, 4 => 3 ]
 #Const		C_AmmoPickupMax				[1 => 150, 2 => 50, 3 => 70, 4 => 50 ]
+#Const		C_DoubleDamageColor			<1., 0., 1.>
 
 declare Ident[Integer] PickupItems;
 declare Integer ItemRespawnTime;
@@ -417,7 +418,7 @@ Void OnPlayerSpawn(CSmPlayer Player, CSmMode::EWeapon DefaultWeapon, Integer Max
 	for (Weapon, 1, 4)
 	{
 		declare W = IntToWeapon(Weapon);
-		if (W == DefaultWeapon)
+		if (W == DefaultWeapon || AllowSwitch)
 		{
 			SetPlayerAmmoMax(Player, W, GetAmmoMax(Weapon));
 		}
@@ -856,8 +857,9 @@ Void SwitchWeaponBy_Do(CSmPlayer Player, Integer By, Integer P_RequestedWeapon)
 Void SwitchWeaponBy(CSmPlayer Player, Integer By)
 {
 	declare CurrentWeapon for Player = 1;
+	if (By == 0) return;
 	
-	SwitchWeaponBy_Do(Player, By, CurrentWeapon + By);
+	SwitchWeaponBy_Do(Player, By / MathLib::Abs(By), CurrentWeapon + By);
 	
 	UpdateCurAmmo(Player);
 }
