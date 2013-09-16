@@ -1,4 +1,4 @@
-#Extends "Modes/ShootMania/CTF-Edit.Script.txt"
+#Extends "Modes/ShootMania/CaptureTheFlag.Script.txt"
 
 #Const			C_PauseDelay		3000
 
