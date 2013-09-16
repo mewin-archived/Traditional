@@ -16,6 +16,7 @@
 #Include "Libs/Mewin/ShootMania/Multikill.Script.txt" as MultiKill
 #Include "Libs/Mewin/ShootMania/Sound.Script.txt" as Sound
 #Include "Libs/Mewin/ShootMania/Pickups.Script.txt" as Pickups
+#Include "Libs/Mewin/ShootMania/Bots.Script.txt" as Bots
 
 //#Const	CompatibleMapTypes	"SnDArena"
 #Const	Version				"2013-08-05"
