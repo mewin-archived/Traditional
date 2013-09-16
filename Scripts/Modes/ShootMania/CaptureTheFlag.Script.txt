@@ -18,13 +18,15 @@
 #Include "Libs/Nadeo/ShootMania/ScoresTable.Script.txt" as ScoresTable
 #Include "Libs/Nadeo/ShootMania/SpawnScreen.Script.txt" as SpawnScreen
 #Include "Libs/Nadeo/Interface.Script.txt" 				as Slider
+#Include "Libs/Mewin/ShootMania/StatusEffects.Script.txt" as StatusEffects
+#Include "Libs/Mewin/UserSettings.Script.txt" as UserSettings
 
 //#Include "Libs/Mewin/ShootMania/Radar.Script.txt" as Radar
 #Include "Libs/Mewin/ShootMania/Multikill.Script.txt" as Multikill
 #Include "Libs/Mewin/ShootMania/Sound.Script.txt" as Sound
 #Include "Libs/Mewin/Common/Lang.Script.txt" as Lang
 #Include "Libs/Mewin/ShootMania/Pickups.Script.txt" as Pickup
-#Include "Libs/Mewin/ShootMania/StatusEffects.Script.txt" as StatusEffects
+#Include "Libs/Mewin/ShootMania/Minigames.Script.txt" as Games
 //#Include "Libs/Mewin/Common/ServerList.Script.txt" as ServerList
 
 // Game Rules
@@ -39,7 +41,7 @@
 #Setting	ItemRespawnTime				60000			as "item respawn time"
 #Setting	KillLeavers					True			as "kill map leavers"
 // Scores
-#Setting	TakeScore					4				as "score for grabbing the enemy flag"
+#Setting	TakeScore					4				as "score for taking the enemy flag"
 #Setting	CaptureScore				6				as "score for capturing the enemy flag"
 #Setting	ReturnScore					5				as "score for returning the own flag"
 #Setting	KillScore					1				as "score for hit"
@@ -53,6 +55,7 @@
 #Setting	ArmorGainMax				400				as "maximum armor"
 #Setting	BotsFill					4				as "fill up bot count"
 #Setting	BotSkill					5				as "Bot skill (1-10)"
+#Setting	MinimumPlayers				1				as "minimum players to start game"
 
 // ------- Additional Settings - //
 #Const		SelfDamage					False			//damage yourself (i.e. with nucleus)
@@ -75,6 +78,9 @@
 											5 => 1.5,	//Armor (def 1.5)
 											6 => 2.		//DoubleDamage (def 2.)
 										]
+#Const		PlayerWaitTime				30000			//time to wait until ending a match because of missing players
+										
+#Command	MG_EndMG					(Real)			as "end current minigame in ... s"
 
 // ------- Map Type ------------ //
 #Const		CompatibleMapTypes			"CTFArena"
@@ -89,7 +95,7 @@
 #Const		LaserGainFactor				1.5				//... for laser
 #Const		NucleusGainFactor			0.75			//... for nucleus
 #Const		ArrowGainFactor				1.				//... for arrow
-#Const		FallbackWeaponMode			0				//fallback mode (if WeaponMode == 6, but old map)
+#Const		FallbackWeaponMode			0				//fallback mode (if WeaponMode == 6, but no weapons defined on map)
 
 // ------- Message Priorities -- ///
 #Const		PriorityReset				11
@@ -103,8 +109,8 @@
 // ------- Constants ----------- // Do not modify
 #Const		Debug						False
 /// ------ Informational ------ ///
-#Const		VersionNum					"2.0-b1.0"
-#Const		Version						"2013-08-21"
+#Const		VersionNum					"2.0-b1.1"
+#Const		Version						"2013-09-16"
 /// ------ Model Paths -------- ///
 #Const		RedFlagPath					"CTF/RedFlag.Item.gbx"
 #Const		BlueFlagPath				"CTF/BlueFlag.Item.gbx"
@@ -121,11 +127,6 @@ if(TimeLimit > -1)
 ***
 declare ModeName = "Capture the Flag";
 declare ModeRules = "Two teams\n\n- Try to get to the enemy pole to grab the flag and bring it back to your flag.\n- The player who carries the flag is highlighted and the flag is marked.\n- You can only return the flag if your flag is at your base.\n- If the one who has the flag dies, he drops the flag at his position.\n- It is reset after some seconds.\n- Match ends when either the score limit or the time limit is reached.\n- If both teams have equals scores at the end, winner is decided like this:\n  - If only on team has the enemy flag at this moment this team wins.\n  - Otherwise overtime starts. During overtime the teams wins, that reaches his targeted pole first (Yours if you have the flag, the enemies if you don't.) or if the flag carrier is eleminated.";
-//Init SpawnScreen
-SpawnScreen::SetModeName("Capture The Flag");
-SpawnScreen::AddSubsection("Rules", ModeRules, 0.);
-SpawnScreen::CreatePrettyRules();
-SpawnScreen::CreateScores();
 ***
 
 ***NewPlayer***
@@ -146,6 +147,16 @@ Slider::ShowSlider(Player, 0);
 ***
 Message::Loop();
 StatusEffects::Loop();
+if (Players.count < MinimumPlayers && OldEndTime < -1)
+{
+	OldEndTime = EndTime;
+	EndTime = Now + PlayerWaitTime;
+}
+else if (Players.count >= MinimumPlayers && OldEndTime > -2)
+{
+	EndTime = OldEndTime;
+	OldEndTime = -2;
+}
 //ServerList::Loop();
 ***
 
@@ -156,13 +167,25 @@ log("");
 
 ***InitServer***
 ***
-log("");
+UIManager.UIAll.ScreenIn3dHideScoreSummary = False;
+UIManager.UIAll.ScreenIn3dHideVersus = False;
 //ServerList::RegisterServer("""&version={{{VersionNum}}}""");
-//Radar::Init();
 ***
 
 ***MatchBegin***
 ***
+declare OldEndTime = -2;
+while (Players.count < MinimumPlayers)
+{
+	UIManager.UIAll.OverlayScoreSummary = False;
+	UIManager.UIAll.ScreenIn3dHideScoreSummary = True;
+	UIManager.UIAll.ScreenIn3dHideVersus = True;
+	G_BlockSpawnQueue = [ 1 => Ident[], 2 => Ident[] ];
+	UpdateBlockSpawnQueue(1); //Fill spawn queue for minigame to start
+	Games::Minigame_FlagRun(SM::GetPole("Goal", 2).Id, SM::GetPole("Goal", 1).Id, G_BlockSpawnQueue[1], MinimumPlayers);
+}
+UIManager.UIAll.ScreenIn3dHideScoreSummary = False;
+UIManager.UIAll.ScreenIn3dHideVersus = False;
 if (WeaponMode == 6 && FallbackWeaponMode != 6)
 {
 	NeedFallback = !Pickup::MapHasPickups([1, 2, 3, 4]);
@@ -199,6 +222,11 @@ Slider::SetSliderAnimation(<-210., 40.>, <-160., 40.>);
 Slider::AddSlide(1, "Top", _("Top Hit"), "Hit");
 Slider::AddSlide(2, "Top", _("Top Attack"), "Atk");
 Slider::AddSlide(3, "Top", _("Top Defense"), "Def");
+UIManager.UIAll.ScoreSummary_MatchPoints1 = 0;
+UIManager.UIAll.ScoreSummary_MatchPoints2 = 0;
+
+//Had to put this here, because .......... P0TatO!
+LayerSettings.ManialinkPage = UserSettings::CreateLayerBindings(["Settings", "DropFlag", "CtfMarker"], ["Bindings", "Drop Flag", "Toggle Markers"]);
 ***
 
 ***MatchEnd***
@@ -213,10 +241,10 @@ foreach (Player in AllPlayers)
 {
 	Pickup::RemoveML(Player);
 }
+UIManager.UIAll.OverlayScoreSummary = True;
+UIManager.UIAll.ScoreSummary_Points1 = 0;
+UIManager.UIAll.ScoreSummary_Points2 = 0;
 //ServerList::UpdateRoundInfo("");
-//Radar::Destroy();
-//Radar::AddTarget(Poles[1].Position, "");
-//Radar::AddTarget(Poles[2].Position, "");
 ***
 
 ***EndRound***
@@ -227,7 +255,6 @@ EndTime = -1;
 ObjectDestroyAll();
 XmlRpc::EndRound(Round);
 Message::CleanAllMessages();
-//Radar::Destroy();
 foreach (Player in AllPlayers)
 {
 	Pickup::RemoveML(Player);
@@ -824,8 +851,6 @@ Text GetMLRoundInfo()
 		{
 			ML ^= """<label posn="{{{ClanHPos[Clan]}}} 60" halign="center" valign="center" style="TextRaceChrono" scale="0.7">{{{(FlagDropTimes[Clan] + FlagResetTime - Now) / 1000}}}</label>""";
 		}
-		
-		ML ^= """<label style="TextTitle3" posn="{{{ClanHPos[Clan]}}} 80" halign="center" valign="center">{{{Captures[Clan]}}}</label>""";
 	}
 	
 	return ML;
@@ -834,15 +859,29 @@ Text GetMLRoundInfo()
 Text GetMLEvents(CUser User)
 {
 	declare ML = """<script><!--
+				#Include "TextLib" as TL
 				main()
 				{
+					declare persistent Integer[Text] KeyCodes for LocalUser;
+					declare persistent Text[Text] KeyNames for LocalUser;
 					declare netwrite DropFlag for UI = False;
 					declare netread HasFlag for UI = False;
-					declare LabelDrop <=> Page.GetFirstChild("LabelDrop");
+					declare LabelDrop <=> (Page.GetFirstChild("LabelDrop") as CMlLabel);
+					
+					if (!KeyCodes.existskey("DropFlag"))
+					{
+						KeyCodes["DropFlag"] = 39;
+						KeyNames["DropFlag"] = "F3";
+					}
 					
 					while(True)
 					{
 						yield ;
+						
+						if (LabelDrop.Visible)
+						{
+							LabelDrop.Value = TL::Compose("{{{Lang::GetUserTranslation("hint.drop", User)}}}", KeyNames["DropFlag"]);
+						}
 						
 						if(!HasFlag)
 						{
@@ -856,7 +895,7 @@ Text GetMLEvents(CUser User)
 						
 						foreach(Event in PendingEvents)
 						{
-							if (Event.Type == CMlEvent::Type::KeyPress && Event.CharPressed == "2555904") //F3
+							if (Event.Type == CMlEvent::Type::KeyPress && Event.KeyCode == KeyCodes["DropFlag"])
 							{
 								DropFlag = True;
 							}
@@ -1054,8 +1093,17 @@ Text CreateMarkerLayer()
 	ML = """<script><!--
 		main()
 		{
+			declare persistent Integer[Text] KeyCodes for LocalUser;
+			declare persistent Text[Text] KeyNames for LocalUser;
+			
+			if (!KeyCodes.existskey("CtfMarker"))
+			{
+				KeyCodes["CtfMarker"] = 40;
+				KeyNames["CtfMarker"] = "F4";
+			}
+			
 			declare ShowPoleMarkers = False;
-			declare Quads = [1=>Page.GetFirstChild("Marker_Base_1"), 2=>Page.GetFirstChild("Marker_Base_2")];
+			declare Quads = [1=>Page.GetFirstChild("Quad_Base_1"), 2=>Page.GetFirstChild("Quad_Base_2")];
 			
 			for (Clan, 1, 2)
 			{
@@ -1069,7 +1117,7 @@ Text CreateMarkerLayer()
 					switch(Event.Type)
 					{
 						case CMlEvent::Type::KeyPress:
-							if (Event.CharPressed == "2621440") // F4
+							if (Event.KeyCode == KeyCodes["CtfMarker"])
 							{
 								ShowPoleMarkers = !ShowPoleMarkers;
 								if (ShowPoleMarkers)
@@ -1108,7 +1156,7 @@ Void Update3dMarkers()
 	for (Clan, 1, 2)
 	{
 		declare Pole = Poles[Clan];
-		MarkerText ^= """<marker pos="{{{Pole.Position.X}}} {{{Pole.Position.Y + 25}}} {{{Pole.Position.Z}}}" manialinkframeid="Marker_Base_{{{Clan}}}" visibility="Always" />""";
+		MarkerText ^= """<marker pos="{{{Pole.Position.X}}} {{{Pole.Position.Y + 25}}} {{{Pole.Position.Z}}}" manialinkframeid="Marker_Base_{{{Clan}}}" visibility="WhenInFrustum" />""";
 	}
 	UIManager.UIAll.Hud3dMarkers = MarkerText;
 }
@@ -1220,7 +1268,6 @@ Void DropFlag(CSmPlayer Player, Integer Clan, Vec3 Pos)
 	FlagCarrier[Clan] = NullId;
 	
 	Lang::SendBigMessage("flag.drop", 2000, PriorityDrop, PlayerName(Player, Clan), Teams[2 - Clan].ColorizedName);
-	//Sound::PlaySoundAll("Flag.Drop." ^ Player.CurrentClan);
 	Sound::PlaySoundClan("Flag.Drop.Ally", 3 - Clan);
 	Sound::PlaySoundClan("Flag.Drop.Enemy", Clan);
 	FlagObjects[3 - Clan].SetPositionAndVel(Pos, Velocity * 0.5);
@@ -1372,12 +1419,15 @@ main()
 	declare LayerRoundInfo <=> UIManager.UILayerCreate();
 	declare LayerVersion <=> UIManager.UILayerCreate();
 	declare LayerMarkers <=> UIManager.UILayerCreate();
+	declare LayerSettings <=> UIManager.UILayerCreate();
 	
 	LayerVersion.ManialinkPage = GetMLVersion();
 	LayerMarkers.ManialinkPage = CreateMarkerLayer();
+	LayerMarkers.Type = CUILayer::EUILayerType::Markers;
 	
 	UIManager.UIAll.UILayers.add(LayerVersion);
 	UIManager.UIAll.UILayers.add(LayerMarkers);
+	UIManager.UIAll.UILayers.add(LayerSettings);
 	
 	Lang::Init();
 	Lang::LoadLanguage("Translations/CTF/en.xml");
@@ -1413,16 +1463,17 @@ main()
 	Pickup::LoadModels();
 	ItemList_End();
 	
-	UIManager.UIAll.ScreenIn3dHideScoreSummary=True;
 	UIManager.UIAll.AltMenuNoCustomScores = True;
 	UIManager.UIAll.AltMenuNoDefaultScores = True;
 	
 	while( !ServerShutdownRequested )
 	{
+		
 		declare LastBotUpdate = 0;
 		XmlRpc::LoadingMap(NextMapIndex);
 		LoadMap();
 		XmlRpc::BeginMap(NextMapIndex);
+		+++MatchBegin+++
 	
 		Top::Load();
 		Top::SetTopWidth(65.);
@@ -1490,6 +1541,10 @@ main()
 		
 		//Init SpawnScreen
 		---Rules---
+		//Init SpawnScreen
+		SpawnScreen::SetModeName("Capture The Flag");
+		SpawnScreen::AddSubsection("Rules", ModeRules, 0.);
+		SpawnScreen::CreatePrettyRules("Capture The Flag");
 		SpawnScreen::CreateMapInfo();
 		
 		Score::MatchBegin(False);	
@@ -1497,8 +1552,6 @@ main()
 		Victory::MatchBegin();
 		if(AutoBalance) AutoTeamBalance();
 		Ladder_OpenMatch_All();
-		
-		+++MatchBegin+++
 		
 		declare Round = 0;
 		
@@ -1980,8 +2033,8 @@ main()
 					}
 					else if (Event.Type == CSmModeEvent::EType::OnCommand)
 					{
-						log (Event.CommandName);
-						log (Event.CommandValueInteger);
+						log ("Command: " ^ Event.CommandName);
+						+++OnCommand+++
 					}
 					else if (Event.Type == CSmModeEvent::EType::OnShoot)
 					{
@@ -2129,6 +2182,15 @@ main()
 									declare netwrite HasFlag for UIManager.GetUI(Player) = False;
 									HasFlag = False;
 								}
+								
+								if (Clan == 1)
+								{
+									UIManager.UIAll.ScoreSummary_Points1 += 1;
+								}
+								else
+								{
+									UIManager.UIAll.ScoreSummary_Points2 += 1;
+								}
 							
 								if(Overtime)
 								{
@@ -2181,7 +2243,7 @@ main()
 						Victory::SetRoundWinnerIfNoWinner(1);
 					else if(FlagCarrier[1] == NullId && FlagCarrier[2] != NullId && OvertimeMode == 0)
 						Victory::SetRoundWinnerIfNoWinner(2);
-					else if(OvertimeMode < 2)
+					else if(OvertimeMode < 2 && OldEndTime < -1)
 					{
 						Overtime = True;
 						StartTime = Now - 500;
@@ -2285,10 +2347,12 @@ main()
 				if (Victory::IsRoundWinner(1))
 				{
 					UI.BigMessage = TextLib::Compose(Lang::GetUserTranslation("round.win", Player.User), Lang::GetUserTranslation("team.name1", Player.User));
+					UIManager.UIAll.ScoreSummary_MatchPoints1 += 1;
 				}
 				else if(Victory::IsRoundWinner(2))
 				{
 					UI.BigMessage = TextLib::Compose(Lang::GetUserTranslation("round.win", Player.User), Lang::GetUserTranslation("team.name2", Player.User));
+					UIManager.UIAll.ScoreSummary_MatchPoints2 += 1;
 				}
 				else
 				{
@@ -2307,7 +2371,15 @@ main()
 			
 			sleep(1000);
 			
-			Victory::SetMatchWinnerFromScore(WinLimit, 0, RoundLimit);
+			if (OldEndTime < -1)
+			{
+				Victory::SetMatchWinnerFromScore(WinLimit, 0, RoundLimit);
+			}
+			else
+			{
+				Victory::SetMatchWinnerFromScore(1, 0, RoundLimit);
+				MatchEndRequested = True;
+			}
 			
 			UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedVisible;
 			UIManager.UIAll.UISequence = CUIConfig::EUISequence::EndRound;				
@@ -2318,6 +2390,7 @@ main()
 			}
 
 			sleep(4000);
+			UIManager.UIAll.OverlayScoreSummary = False;
 						
 			+++RoundEnd+++	
 			Score::RoundEnd();
@@ -2403,7 +2476,7 @@ main()
 
 		UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
 
-		sleep(1*1000);
+		sleep(1000);
 			
 		UIManager.UIAll.UILayers.clear();
 		MatchEndRequested = False;

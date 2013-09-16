@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<frame>
+	<frame id="Update" hidden="1">
+		<quad posn="-160 90 110" sizen="320 180" bgcolor="0000" manialink="install_traditional" />
+		<label style="TextRaceMessageBig" posn="0 0" halign="center" valign="top" text="Click to update" />
+	</frame>
+	<script><!--
+		if (Version > 20020000)
+		{
+			MustUpdate = True;
+		}
+	--></script>
+</frame>

@@ -10,8 +10,7 @@
 		<logos name="Logos-2.png" />
 		<collection></collection>
 		<sortindex>100</sortindex>
-		<station_manialink url="" />
-		<!--<station_manialink url="file://Media/Manialinks/Traditional_Station.xml" />-->
+		<station_manialink url="file://Media/Manialinks/Traditional_Station.xml" />
 		<boxcase_manialink url="" />
 	</packaging>
 	<menu>

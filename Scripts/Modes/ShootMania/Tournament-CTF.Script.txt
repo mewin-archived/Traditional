@@ -1,0 +1,153 @@
+#Extends "Modes/ShootMania/CTF-Edit.Script.txt"
+
+#Const			C_PauseDelay		3000
+
+#Command 		Pause				(Boolean)	as "Toggle Pause"
+
+***InitServer***
+***
+declare PauseStarted = -1;
+***
+
+***OnCommand***
+***
+if (Event.CommandName == "Pause")
+{
+	if (PauseStarted > -1)
+	{
+		log ("ERROR: Game is already paused.");
+	}
+	else
+	{
+		PauseStarted = Now;
+	}
+}
+***
+
+***Update***
+***
+if (PauseStarted > -1)
+{
+	declare TimeTillPause = C_PauseDelay - Now + PauseStarted;
+	
+	if (TimeTillPause > 0)
+	{
+		UIManager.UIAll.BigMessage = "Pause in $f00" ^ MathLib::CeilingInteger(TimeTillPause / 1000.) ^ "$fff seconds.";
+	}
+	else
+	{
+		UIManager.UIAll.BigMessage = "$f00Game Paused";
+		UIManager.UIAll.StatusMessage = "$f83Use commands to unpause.";
+		
+		declare RestTime = -1;
+		declare DoneTime = -1;
+		declare TimerWasHidden = UIManager.UIAll.OverlayHideCountdown;
+		
+		if (EndTime > -1)
+		{
+			RestTime = EndTime - Now;
+		}
+		
+		DoneTime = Now - StartTime;
+		
+		EndTime = -1;
+		UIManager.UIAll.UISequence = CUIConfig::EUISequence::CustomMTClip;
+		UIManager.UIAll.OverlayHideCountdown = True;
+		
+		foreach (Bot in BotPlayers)
+		{
+			declare OldBehaviour for Bot = Bot.Driver.Behaviour;
+			declare OldAggroRadius for Bot = Bot.Driver.AggroRadius;
+			
+			Bot.Driver.Behaviour = CSmPlayerDriver::ESmDriverBehaviour::Static;
+			Bot.Driver.AggroRadius = 0.;
+		}
+		
+		foreach (Object in Objects)
+		{
+			if (Object.Status == CSmObject::EStatus::Unspawned)
+			{
+				declare ObjectRespawnTime for Object = -1;
+				
+				if (ObjectRespawnTime > -1)
+				{
+					declare Integer ObjectTillRespawn for Object;
+					
+					ObjectTillRespawn = ObjectRespawnTime - Now;
+				}
+			}
+		}
+		
+		declare FlagTimers = [ 1 => Now - FlagDropTimes[1], 2 => Now - FlagDropTimes[2]];
+		
+		declare Unpause = False;
+		while (!Unpause)
+		{
+			yield;
+			foreach (Event in PendingEvents)
+			{
+				if (Event.Type == CSmModeEvent::EType::OnCommand && Event.CommandName == "Pause")
+				{
+					Unpause = True;
+					Discard(Event);
+					declare UnStartTime = Now;
+						UIManager.UIAll.StatusMessage = "";
+					while (UnStartTime + C_PauseDelay > Now)
+					{
+						UIManager.UIAll.BigMessage = "Game continues in $f00" ^ MathLib::CeilingInteger((UnStartTime + C_PauseDelay - Now) / 1000.) ^ " $fffseconds.";
+						
+						yield;
+					}
+				}
+				else
+				{
+					PassOn(Event);
+				}
+			}
+		}
+		PauseStarted = -1;
+		UIManager.UIAll.BigMessage = "";
+		UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
+		UIManager.UIAll.OverlayHideCountdown = TimerWasHidden;
+		StartTime = Now - DoneTime;
+		
+		foreach (Bot in BotPlayers)
+		{
+			declare CSmPlayerDriver::ESmDriverBehaviour OldBehaviour for Bot;
+			declare Real OldAggroRadius for Bot;
+			
+			Bot.Driver.Behaviour = OldBehaviour;
+			Bot.Driver.AggroRadius = OldAggroRadius;
+		}
+		
+		foreach (Object in Objects)
+		{
+			if (Object.Status == CSmObject::EStatus::Unspawned)
+			{
+				declare ObjectRespawnTime for Object = -1;
+				
+				if (ObjectRespawnTime > -1)
+				{
+					declare Integer ObjectTillRespawn for Object;
+					
+					ObjectRespawnTime = Now + ObjectTillRespawn;
+				}
+			}
+		}
+		
+		for (Clan, 1, 2)
+		{
+			if (FlagDropTimes[Clan] > 0)
+			{
+				FlagDropTimes[Clan] = Now - FlagTimers[Clan];
+			}
+		}
+		
+		if (RestTime > -1)
+		{
+			EndTime = Now + RestTime;
+		}
+		log ("Pause ended.");
+	}
+}
+***

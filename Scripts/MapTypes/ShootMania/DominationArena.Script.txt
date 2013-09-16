@@ -1,0 +1,213 @@
+#RequireContext CSmMapType
+#Include "TextLib" as TextLib
+#Include "Libs/Nadeo/Anchor.Script.txt" as Anchor
+
+declare Text Rules;
+
+/* -------------------------------------- */
+// Check if the map is valid
+Void UpdateValidability() {
+	declare NbGoal = 0;
+	declare NbMaxTeam = 2;
+	foreach(Data in AnchorData) {
+		if(Data.Order < 1 || Data.Order > 10) Data.Order = 1;
+		if(Data.Tag != "Spawn") Data.Order = 0;
+		
+		if (Data.Tag == "Spawn")
+		{
+			if (Data.Order > NbMaxTeam)
+			{
+				NbMaxTeam = Data.Order;
+			}
+		}
+		else NbGoal += 1;
+	}
+	
+	Anchor::UpdateAnchorCounts();	
+	
+	if (NbGoal < 1) {
+		ValidationStatus = CSmMapType::ValidationStatus::NotValidable;
+		ValidabilityRequirementsMessage = _("You must place at least one goal.");
+		return;
+	}
+	
+	for(Clan, 1, NbMaxTeam)
+	{
+		if (!Anchor::HasAtLeastOneAnchor("Spawn", Clan, """You must place at least on spawn #{{{Clan}}}."""))return;
+	}
+	
+	ValidationStatus = CSmMapType::ValidationStatus::Validated;	
+}
+
+/* -------------------------------------- */
+// Return the manialink for anchor edition
+Text EditAnchorManialink(Text _Tag) {
+	
+	declare MLText = 		
+	"""
+	<script><!--
+		#Include "TextLib" as TextLib
+		
+		main() {
+			declare LabelOrder = (Page.GetFirstChild("num") as CMlLabel);
+			
+			
+			declare Integer AnchorOrder for Page;
+			declare Text	AnchorTag for Page;
+			declare Boolean Finish for Page;
+			declare OldOrder = AnchorOrder;
+			Finish = False;	
+			LabelOrder.Value = TextLib::ToText(AnchorOrder);
+			while(!Finish) {
+				yield;
+				
+				foreach(Event in PendingEvents) {
+					switch(Event.Type){
+						case CMlEvent::Type::MouseClick : {
+							if (Event.ControlId == "plus" && AnchorOrder < 10)
+							{
+								AnchorOrder += 1;
+								LabelOrder.Value = TextLib::ToText(AnchorOrder);
+							}
+							else if (Event.ControlId == "minus" && AnchorOrder > 1)
+							{
+								AnchorOrder -= 1;
+								LabelOrder.Value = TextLib::ToText(AnchorOrder);
+							}
+							else if (Event.ControlId == "Ok")
+							{
+								Finish = True;
+							}
+							else if (Event.ControlId == "Cancel")
+							{
+								AnchorOrder = OldOrder;
+								Finish = True;
+							}
+						}	
+					}
+				}
+			}
+		}			
+	--></script>
+	<frame posn="120 35">
+		<quad posn="0 0 -1" sizen="74 23" halign="center" style="Bgs1" substyle="BgWindow2"/>
+		<quad posn="0 0 2" sizen="76 15" halign="center" valign="bottom" style="Bgs1InRace" substyle="BgTitle3_5"/>
+		<label posn="0 5 3" halign="center" valign="bottom" style="TextTitle3" text="$fff{{{_("Edit")^" "^_Tag}}}" />
+		<frame posn="0 -4">
+			<label id="num" posn="0 0" scale="2" halign="center" style="TextTitle3" text="1" />
+			<label id="minus" posn="-10 0" scale="2" halign="center" style="TextButtonMedium" ScriptEvents="true" text="-" />
+			<label id="plus" posn="10 0" scale="2" halign="center" style="TextButtonMedium" ScriptEvents="true" text="+" />
+		</frame>
+		<label id="Ok" text="{{{_("Ok")}}}" posn="0 -13" halign="right" style="CardButtonSmall" ScriptEvents="true" />
+		<label id="Cancel" text="{{{_("Cancel")}}}" posn="0 -13" halign="left" style="CardButtonSmall" ScriptEvents="true"/>
+    </frame>
+	<frame posn="120 -3">
+		<quad posn="0 0 2" sizen="74 15" halign="center" valign="bottom" style="Bgs1InRace" substyle="BgTitle3_5"/>
+		<label posn="0 5 3" halign="center" valign="bottom" style="TextTitle3" text="$fff{{{_("Rules")}}}" />
+		<quad posn="0 0 -1" sizen="70 30" halign="center" style="Bgs1" substyle="BgWindow2"/>
+		<frame posn="-30 -4">
+			<label posn="0 0" sizen="60 5" autonewline="1" style="TextCardSmallScores2" text="$222{{{ Rules }}}" />
+		</frame>
+	</frame>
+	""";
+  
+	return MLText;
+}
+
+/* -------------------------------------- */
+// Manialink for non editable anchor
+Text GoalEditManialink() {
+	declare MLText = 		
+	"""
+	<frame posn="120 35">
+		<entry posn="-30 -2" id="GoalName" default="Goal" sizen="50 4" textsize="2" />
+		<quad posn="0 0 -1" sizen="70 23" halign="center" style="Bgs1" substyle="BgWindow2"/>
+		<quad posn="0 0 2" sizen="74 15" halign="center" valign="bottom" style="Bgs1InRace" substyle="BgTitle3_5"/>
+		<label posn="0 5 3" halign="center" valign="bottom" style="TextTitle3" text="$fff{{{_("Edit")}}} Goal" />
+		<label id="OK" text="{{{_("OK")}}}" posn="0 -10" halign="center" style="CardButtonSmall" ScriptEvents="1"/>
+		<label id="Cancel" text="{{{_("Cancel")}}}" posn="0 -17" halign="center" style="CardButtonSmall" ScriptEvents="1"/>
+    </frame>
+	<frame posn="120 -3">
+		<quad posn="0 0 2" sizen="74 15" halign="center" valign="bottom" style="Bgs1InRace" substyle="BgTitle3_5"/>
+		<label posn="0 5 3" halign="center" valign="bottom" style="TextTitle3" text="$fff{{{_("Rules")}}}" />
+		<quad posn="0 0 -1" sizen="70 30" halign="center" style="Bgs1" substyle="BgWindow2"/>
+		<frame posn="-30 -4">
+			<label posn="0 0" sizen="60 5" autonewline="1" style="TextCardSmallScores2" text="$222{{{ Rules }}}" />
+		</frame>
+	</frame>
+	<script><!--
+		#Include "TextLib" as TextLib
+		
+		main() {
+			
+			declare Text	AnchorTag for Page;
+			declare Boolean Finish for Page;
+			declare Entry = (Page.GetFirstChild("GoalName") as CMlEntry);
+			Finish = False;	
+			
+			Entry.Value = AnchorTag;
+			
+			while(!Finish) {
+				yield;
+				
+				foreach(Event in PendingEvents) {
+					switch(Event.Type){
+						case CMlEvent::Type::MouseClick : {
+							if (Event.ControlId != "Cancel") AnchorTag = Entry.Value;
+							Finish = True;
+						}	
+					}
+				}
+			}
+		}			
+	--></script>
+	""";
+	
+	return MLText;
+}
+
+/* -------------------------------------- */
+// Show the anchor edition manialink
+Void EditAnchorData(Ident _EditedAnchorDataId)
+{	
+	UpdateValidability();
+	declare Integer AnchorOrder for ManialinkPage;
+	declare Text AnchorTag for ManialinkPage;
+	declare Boolean Finish for ManialinkPage;
+	if (AnchorData[_EditedAnchorDataId].Tag == "Spawn") ManialinkText = EditAnchorManialink(AnchorData[_EditedAnchorDataId].Tag);
+	else ManialinkText = GoalEditManialink();
+	AnchorOrder = AnchorData[_EditedAnchorDataId].Order;
+	AnchorTag = AnchorData[_EditedAnchorDataId].Tag;
+	
+	Finish = False;
+	while(!Finish) {
+		yield;
+	}
+	AnchorData[_EditedAnchorDataId].Order = AnchorOrder;
+	AnchorData[_EditedAnchorDataId].Tag = AnchorTag;
+	
+	UpdateValidability();
+}
+
+
+
+/* -------------------------------------- */
+// Main
+/* -------------------------------------- */
+
+main() {		
+	UpdateValidability();
+	CustomEditAnchorData = True;
+	Rules = _("You must place at least one spawn per team.\nYou must place at least one goal.");	
+	while (True) {	
+		yield;
+		ManialinkText = "";			
+		foreach(Event in PendingEvents) {
+			if(Event.Type == CPluginEvent::Type::MapModified) {
+				UpdateValidability();			
+			} else if(Event.Type == CPluginEvent::Type::EditAnchor) {
+				EditAnchorData(Event.EditedAnchorDataId);
+			}
+		}		
+	}	
+}

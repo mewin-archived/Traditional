@@ -1,0 +1,160 @@
+#Const C_BotTickTime 200
+
+declare Integer LastBotTick;
+declare CSmPlayer[] Bots;
+declare Vec3[Integer][Integer] ClanTargets;
+declare Integer[Integer][Integer] ClanTargetTypes;
+declare Vec3[Integer] AllTargets;
+declare Integer[Integer] AllTargetTypes;
+
+Void AddBotTarget(CSmPlayer Bot, Vec3 Location, Integer Priority, Integer TargetType)
+{
+	declare Vec3[Integer] Targets for Bot;
+	declare Integer[Integer] TargetTypes for Bot;
+	declare _Prio = Priority;
+	
+	while (Targets.existskey(_Prio))
+	{
+		_Prio -= 1;
+	}
+	
+	Targets[_Prio] = Location;
+	TargetTypes[_Prio] = TargetType;
+}
+
+Void AddClanTarget(Integer Clan, Vec3 Location, Integer Priority, Integer TargetType)
+{
+	foreach (Bot in Bots)
+	{
+		if (Bot.CurrentClan == Clan)
+		{
+			AddBotTarget(Bot, Location, Priority, TargetType);
+		}
+	}
+	
+	declare _Prio = Priority;
+	
+	if (!ClanTargets.existskey(Clan))
+	{
+		ClanTargets[Clan] = Vec3[Integer];
+		ClanTargetTypes[Clan] = Integer[Integer];
+	}
+	
+	while (ClanTargets[Clan].existskey(_Prio))
+	{
+		_Prio -= 1;
+	}
+	
+	ClanTargets[Clan][_Prio] = Location;
+	ClanTargetTypes[Clan][_Prio] = TargetType;
+}
+
+Void AddTarget(Vec3 Location, Integer Priority, Integer TargetType)
+{
+	foreach (Bot in Bots)
+	{
+		AddBotTarget(Bot, Location, Priority, TargetType);
+	}
+	
+	declare _Prio = Priority;
+	
+	while (AllTargets.existskey(_Prio))
+	{
+		_Prio -= 1;
+	}
+	
+	AllTargets[_Prio] = Location;
+	AllTargetTypes[_Prio] = TargetType;
+}
+
+Void RemoveBotTarget(CSmPlayer Bot, Vec3 Location)
+{
+	declare Vec3[Integer] Targets for Bot;
+	
+	Targets.remove(Location);
+}
+
+Void RemoveClanTarget(Integer Clan, Vec3 Location)
+{
+	if (ClanTargets.existskey(Clan))
+	{
+		ClanTargets[Clan].remove(Location);
+		
+		foreach (Bot in Bots)
+		{
+			if (Bot.CurrentClan == Clan)
+			{
+				RemoveBotTarget(Bot, Location);
+			}
+		}
+	}
+}
+
+Void RemoveTarget(Vec3 Location)
+{
+	AllTargets.remove(Location);
+	
+	foreach (Bot in Bots)
+	{
+		RemoveBotTarget(Bot, Location);
+	}
+}
+
+Void ClearTargets(CSmPlayer Bot)
+{
+	declare Vec3[Integer] Targets for Bot;
+	declare Integer[Integer] TargetTypes for Bot;
+	
+	Targets.clear();
+	TargetTypes.clear();
+}
+
+Void ClearTargets()
+{
+	ClanTargets.clear();
+	AllTargets.clear();
+	ClanTargetTypes.clear();
+	AllTargetTypes.clear();
+	
+	foreach (Bot in Bots)
+	{
+		ClearTargets(Bot);
+	}
+}
+
+Void AddBot(CSmPlayer Bot)
+{
+	if (Bot.IsBot)
+	{
+		Bots.add(Bot);
+		foreach (_Prio => Location in AllTargets)
+		{
+			AddBotTarget(Bot, Location, _Prio, AllTargetTypes[_Prio]);
+		}
+		
+		if (ClanTargets.existskey(Bot.CurrentClan))
+		{
+			foreach (_Prio => Location in ClanTargets[Bot.CurrentClan])
+			{
+				AddBotTarget(Bot, Location, _Prio, ClanTargetTypes[Bot.CurrentClan][_Prio]);
+			}
+		}
+	}
+}
+
+Void UpdateBot(CSmPlayer Bot)
+{
+
+}
+
+Void Loop()
+{
+	if (LastBotTick + C_BotTickTime < Now)
+	{
+		LastBotTick = Now;
+		foreach (Bot in Bots)
+		{
+			UpdateBot(Bot);
+		}
+	}
+}

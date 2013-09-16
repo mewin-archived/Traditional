@@ -1,0 +1,364 @@
+#Include "TextLib" as TextLib
+#Include "MathLib" as MathLib
+#Include "Libs/Nadeo/ShootMania/SM.Script.txt" as SM
+#Include "Libs/Nadeo/ShootMania/ScoresTable.Script.txt" as ScoresTable
+#Include "Libs/Nadeo/ShootMania/SpawnScreen.Script.txt" as SpawnScreen
+
+declare Ident[] G_BlockSpawnQueue;	///< A list of spawn points to use
+declare Integer NextSpawn;
+declare Ident TimeLayerId;
+
+CSmBlockSpawn NextSpawn()
+{
+	declare Spawn = BlockSpawns[G_BlockSpawnQueue[NextSpawn]];
+	
+	NextSpawn += 1;
+	
+	if (NextSpawn >= G_BlockSpawnQueue.count)
+	{
+		NextSpawn = 0;
+	}
+	
+	return Spawn;
+}
+
+Void InitSpawnScreen(Text ModeName, Text Rules, Integer MinPlayers)
+{
+	SpawnScreen::SetModeName(ModeName);
+	SpawnScreen::AddSubsection("Info", """This is a minigame. You can play it until there are enough players ({{{MinPlayers}}}) to start the match.""", 0.);
+	SpawnScreen::AddSubsection("Rules", Rules, 40.);
+	SpawnScreen::CreatePrettyRules();
+	SpawnScreen::CreateMapInfo();
+}
+
+Void RemoveLayerTime()
+{
+	if (UIManager.UILayers.existskey(TimeLayerId))
+	{
+		UIManager.UILayerDestroy(UIManager.UILayers[TimeLayerId]);
+	}
+}
+
+Void AddLayerTime()
+{	
+	if (!UIManager.UILayers.existskey(TimeLayerId))
+	{
+		declare TimeLayer = UIManager.UILayerCreate();
+		TimeLayerId = TimeLayer.Id;
+		UIManager.UIAll.UILayers.add(TimeLayer);
+	}
+	
+	declare TimeLayer = UIManager.UILayers[TimeLayerId];
+	TimeLayer.ManialinkPage = """
+		<label posn="0 -60" halign="center" valign="bottom" style="TextRaceChrono" scale="0.7" id="Best">--.--.--</label>
+		<label posn="0 -63" halign="center" valign="center" style="TextRaceChrono" id="Time">--:--.--</label>
+		<script><!--
+		#Include "TextLib" as TextLib
+		
+		main()
+		{
+			declare TimeLabel = (Page.GetFirstChild("Time") as CMlLabel);
+			declare BestLabel = (Page.GetFirstChild("Best") as CMlLabel);
+			declare Best = -1;
+			declare netread _StartTime for InputPlayer = -1;
+			declare netread _EndTime for InputPlayer = -1;
+			while (True)
+			{
+				declare DispBest = Best;
+				declare BestColor = "$fff";
+				yield;
+				if (_StartTime > -1)
+				{
+					declare Integer Time;
+					declare TimeColor = "$fff";
+					declare TimeScale = 1.;
+					if (_EndTime > -1)
+					{
+						Time = _EndTime - _StartTime;
+						if (Best < 0 || Time < Best)
+						{
+							Best = Time;
+						}
+					}
+					else
+					{
+						Time = GameTime - _StartTime;
+						if (Best > -1)
+						{
+							if (Time > Best)
+							{
+								TimeColor = "$f00";
+							}
+							else if(Time < Best && Best - Time < 5000 && GameTime % 1000 < 300)
+							{
+								TimeColor = "$f00";
+								TimeScale = 1.5 - (GameTime % 1000) / 450.;
+							}
+						}
+					}
+					TimeLabel.SetText(TimeColor ^ TextLib::TimeToText(Time, True));
+					TimeLabel.RelativeScale = TimeScale;
+					if (DispBest < 0)
+					{
+						DispBest = Time;
+						BestColor = "$999";
+					}
+				}
+				else
+				{
+					TimeLabel.SetText("--:--.--");
+				}
+				
+				if (DispBest > 0)
+				{
+					BestLabel.SetText(BestColor ^ TextLib::TimeToText(DispBest, True));
+				}
+				else
+				{
+					BestLabel.SetText(BestColor ^ "--:--.--");
+				}
+			}
+		}
+		--></script>
+	""";
+}
+
+Void Minigame_FlagRun(Ident Begin, Ident Finish, Ident[] Spawns, Integer MinimumPlayers)
+{
+	declare OldUseClans = UseClans;
+	declare ModeRunning = True;
+	declare OldNoCust = UIManager.UIAll.AltMenuNoCustomScores;
+	declare OldNoDefault = UIManager.UIAll.AltMenuNoDefaultScores;
+	declare Ident[] OldUILayers;
+	declare CUILayer::EUILayerType OldLayerType;
+	if (ScoresTable::GetLayerScoresTable() != Null)
+	{
+		OldLayerType = ScoresTable::GetLayerScoresTable().Type;
+	}
+	else
+	{
+		OldLayerType = CUILayer::EUILayerType::ScoresTable;
+	}
+	
+	foreach (Layer in UIManager.UIAll.UILayers)
+	{
+		OldUILayers.add(Layer.Id);
+	}
+	
+	foreach (Player in AllPlayers)
+	{
+		
+		declare MG_HasFlag for Player = False;
+		declare MG_FlagPickTime for Player = 0;
+		declare BestTime for Player = -1;
+		declare netwrite Boolean _TabsLib_UseTabs for UIManager.GetUI(Player);
+		
+		MG_HasFlag = False;
+		MG_FlagPickTime = 0;
+		BestTime = -1;
+		_TabsLib_UseTabs = False;
+	}
+	
+	UIManager.UIAll.UILayers.clear();
+	
+	UIManager.UIAll.AltMenuNoDefaultScores = False;
+	UIManager.UIAll.AltMenuNoCustomScores = False;
+	+++FlagRunInit+++
+	G_BlockSpawnQueue = Spawns;
+	NextSpawn = 0;
+	StartTime = -1;
+	EndTime = -1;
+	UseClans = False;
+	
+	UIManager.UIAll.BigMessage = "$24fFlag Run";
+	UIManager.UIAll.StatusMessage = "Capture the flag as fast as possible.";
+	
+	BlockPoles[Begin].Gauge.Clan = 1;
+	BlockPoles[Begin].Gauge.ValueReal = 1.;
+	BlockPoles[Begin].Captured = True;
+	
+	BlockPoles[Finish].Gauge.Clan = 2;
+	BlockPoles[Finish].Gauge.ValueReal = 1.;
+	BlockPoles[Finish].Captured = True;
+	
+	//Init scores table
+	ScoresTable::Load();
+	ScoresTable::SetTableWidth(236.);
+	ScoresTable::SetColumnWidth("Custom1", 5.);
+	ScoresTable::SetDefaultCustom1("--:--.--  ");
+	ScoresTable::SetColumnWidth("RoundPoints", 0.);
+	ScoresTable::SetColumnWidth("Points", 0.);
+	ScoresTable::SetDefaultFooterScore("Last time: --:--.--");
+	ScoresTable::Build();
+	ScoresTable::GetLayerScoresTable().Type = CUILayer::EUILayerType::ScoresTable;
+	
+	InitSpawnScreen("Flag Run", "The goal of this mode is to grab the flag from the other base and bring it to your own base as fast as possible.", MinimumPlayers);
+	
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::None;
+	
+	sleep(5000);
+	
+	AddLayerTime();
+	UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
+	StartTime = Now + 1000;
+	
+	while (ModeRunning && !MatchEndRequested)
+	{
+		foreach (Player in Players)
+		{
+			if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned)
+			{
+				declare netwrite Integer _StartTime for Player;
+				declare netwrite Integer _EndTime for Player;
+				declare Boolean MG_HasFlag for Player;
+				MG_HasFlag = False;
+				_StartTime = -1;
+				_EndTime = -1;
+				UIManager.GetUI(Player).StatusMessage = "";
+				SM::SpawnPlayer(Player, 0, NextSpawn(), Now + 1000);
+				UIManager.GetUI(Player).Hud3dMarkers = """<marker label="Flag" pos="{{{BlockPoles[Begin].Position.X}}} {{{BlockPoles[Begin].Position.Y}}} {{{BlockPoles[Begin].Position.Z}}}" />""";
+			}
+		}
+		
+		foreach (Event in PendingEvents)
+		{
+			if (Event.Type == CSmModeEvent::EType::OnCapture)
+			{
+				Discard(Event);
+			}
+			else if (Event.Type == CSmModeEvent::EType::OnHit)
+			{
+				if (Event.Shooter == Null || Event.Shooter == Event.Victim)
+				{
+					Discard(Event);
+				}
+				else
+				{
+					PassOn(Event);
+				}
+			}
+			else if (Event.Type == CSmModeEvent::EType::OnCommand)
+			{
+				if (Event.CommandName == "MG_EndMG")
+				{
+					EndTime = MathLib::NearestInteger(Now + Event.CommandValueReal * 1000);
+				}
+			}
+			else
+			{
+				PassOn(Event);
+			}
+		}
+		
+		foreach (Id in BlockPoles[Begin].Sector.PlayersIds)
+		{
+			declare MG_HasFlag for Players[Id] = False;
+			if (!MG_HasFlag)
+			{
+				declare netwrite Integer _StartTime for Players[Id];
+				declare netwrite Integer _EndTime for Players[Id];
+				declare Integer MG_FlagPickTime for Players[Id];
+				MG_FlagPickTime = Now;
+				MG_HasFlag = True;
+				_StartTime = Now;
+				_EndTime = -1;
+				UIManager.GetUI(Players[Id]).StatusMessage = "You have the flag. Bring it to your base.";
+				UIManager.GetUI(Players[Id]).SendNotice(
+					TextLib::Compose("$0f0You took the flag at $fff%1$0f0.", 
+					TextLib::TimeToText(Now - StartTime)), 
+					CUIConfig::ENoticeLevel::PlayerInfo, 
+					Players[Id].User, CUIConfig::EAvatarVariant::Default, 
+					CUIConfig::EUISound::Capture, 0);
+				UIManager.GetUI(Players[Id]).Hud3dMarkers = """<marker label="Base" pos="{{{BlockPoles[Finish].Position.X}}} {{{BlockPoles[Finish].Position.Y}}} {{{BlockPoles[Finish].Position.Z}}}" />""";
+			}
+		}
+		
+		foreach (Id in BlockPoles[Finish].Sector.PlayersIds)
+		{
+			declare MG_HasFlag for Players[Id] = False;
+			if (MG_HasFlag)
+			{
+				declare netwrite Integer _EndTime for Players[Id];
+				declare MG_FlagPickTime for Players[Id] = 0;
+				declare BestTime for Players[Id] = -1;
+				declare Time = Now - MG_FlagPickTime;
+				MG_HasFlag = False;
+				_EndTime = Now;
+				declare Txt = "";
+				if (BestTime > -1)
+				{
+					if (Time < BestTime)
+					{
+						Txt = "($00f-" ^ TextLib::TimeToText(BestTime - Time, True) ^ "$fff)";
+					}
+					else if (Time > BestTime)
+					{
+						Txt = "($f00+" ^ TextLib::TimeToText(Time - BestTime, True) ^ "$fff)";
+					}
+				}
+				ScoresTable::SetFooterScore(Players[Id], "Last Time: " ^ TextLib::TimeToText(Time, True) ^ Txt);
+				if (BestTime < 0 || BestTime > Time)
+				{
+					Players[Id].Score.Points = 99999999 - Time;
+					ScoresTable::SetCustom1(Players[Id], TextLib::TimeToText(Time, True) ^ "  ");
+					BestTime = Time;
+				}
+				UIManager.GetUI(Players[Id]).StatusMessage = TextLib::Compose("Best time: %1.", TextLib::TimeToText(BestTime, True));
+				UIManager.GetUI(Players[Id]).SendNotice(
+					TextLib::Compose("$0f0You captured the flag at $fff%1$0f0.",
+					TextLib::TimeToText(Now - StartTime)),
+					CUIConfig::ENoticeLevel::PlayerInfo, Players[Id].User,
+					CUIConfig::EAvatarVariant::Default,
+					CUIConfig::EUISound::VictoryPoint, 0);
+				UIManager.GetUI(Players[Id]).Hud3dMarkers = """<marker label="Flag" pos="{{{BlockPoles[Begin].Position.X}}} {{{BlockPoles[Begin].Position.Y}}} {{{BlockPoles[Begin].Position.Z}}}" />""";
+			}
+		}
+		
+		if (Players.count >= MinimumPlayers)
+		{
+			EndTime = Now + 30000;
+		}
+		
+		if (EndTime > -1 && EndTime <= Now)
+		{
+			ModeRunning = False;
+		}
+		yield;
+	}
+	
+	ScoresTable::SetColumnWidth("RoundPoints", 3.);
+	ScoresTable::SetColumnWidth("Points", 3.);
+	
+	BlockPoles[Begin].Captured = False;
+	BlockPoles[Begin].Gauge.Clan = 0;
+	
+	BlockPoles[Finish].Captured = False;
+	BlockPoles[Finish].Gauge.Clan = 0;
+	
+	UIManager.UIAll.BigMessage = "";
+	UIManager.UIAll.StatusMessage = "";
+	UseClans = OldUseClans;
+	ScoresTable::GetLayerScoresTable().Type = OldLayerType;
+	UIManager.UIAll.AltMenuNoCustomScores = OldNoCust;
+	UIManager.UIAll.AltMenuNoDefaultScores = OldNoDefault;
+	
+	
+	foreach (Player in AllPlayers)
+	{
+		if (!Player.IsBot)
+		{
+			UIManager.GetUI(Player).Hud3dMarkers = "";
+		}
+		ScoresTable::SetCustom1(Player, "");
+	}
+	ScoresTable::Unload();
+	
+	UIManager.UIAll.UILayers.clear();
+	RemoveLayerTime();
+	foreach (Id in OldUILayers)
+	{
+		UIManager.UIAll.UILayers.add(UIManager.UILayers[Id]);
+	}
+	
+	SM::UnspawnAllPlayers();
+}

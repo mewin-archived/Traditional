@@ -1,597 +1,836 @@
-#RequireContext CSmMode 
+#Extends "Modes/ShootMania/ModeBase.Script.txt"
 
-#Include "MathLib" as MathLib
-#Include "TextLib" as TextLib
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/Color.Script.txt" as Color
+#Include "Libs/Nadeo/Layers.Script.txt" as Layers
+#Include "Libs/Nadeo/Message.Script.txt" as Message
 #Include "Libs/Nadeo/ShootMania/SM.Script.txt" as SM
-#Include "Libs/Nadeo/Mode.Script.txt"
+#Include "Libs/Nadeo/ShootMania/Score.Script.txt" as Scores
+#Include "Libs/Nadeo/ShootMania/ScoresTable.Script.txt" as ScoresTable
+#Include "Libs/Nadeo/ShootMania/SpawnScreen.Script.txt" as SpawnScreen
+#Include "Libs/Mewin/ShootMania/Bots.Script.txt" as Bots
 
-#Include "Libs/Nadeo/Victory.Script.txt" as Victory
-#Include "Libs/Nadeo/Top.Script.txt" as Top
-#Include "Libs/Nadeo/ShootMania/Score.Script.txt" as Score
-#Include "Libs/Nadeo/ShootMania/Airshot.Script.txt" as Airshot
-#Include "Libs/Nadeo/ShootMania/BalancedWeapons.Script.txt" as BalancedWeapons
+#Command Infect							(Integer)	as "infect players"
 
-#Setting	RespawnTime					6001
-#Setting	TimeLimit					300000	as "time limit in milliseconds"
-#Setting	FirstInfectionTime			8000	as "time till first infection in seconds"
-#Setting	FirstInfectedBonus			5		as "bonus for f.i. if infecteds win"
-#Setting	DamageScore					1		as "score for hit"
-#Setting	InfectionScore				3		as "score for infection"
-#Setting	SurvivalScore				2		as "score for surviving a whole round"
-#Setting	FirstInfectedNucleus		True	as "f.i. gets nucleus"
+//Scores
+#Setting S_InfectionScore				2			as "infection score"
+#Setting S_HitScore						1			as "hit score"
+//Limits
+#Setting S_TimeLimit					300000		as "time limit"
+#Setting S_ScoreLimit					100			as "score limit"
+#Setting S_RoundLimit					20			as "round limit"
+//Rules
+#Setting S_RespawnOnInfection			False		as "respawn on infection"
+#Setting S_FirstInfectedShoot			True		as "allow first infected to shoot"
+#Setting S_InfectionTime				10000		as "time till first infection"
+#Setting S_HitSurvivors					False		as "allow hitting survivors"
+#Setting S_InfectNewPlayers				True		as "infect players who joined later"
+//Other settings
+#Setting S_MinPlayers					2			as "minimum players"
 
-#Setting	ScoreLimit					50		as "score limit"
+#Const	CompatibleMapTypes	"MeleeArena"
+#Const	Version				"2013-08-28"
 
-#Setting	NumBots						0		as "bots (for debugging)"
+#Const C_Survivor				"$f00Survivor"
+#Const C_Infected				"$0f0Infected"
+#Const C_FirstInfected			"$0f0First Infected"
+#Const C_NearDistance			1.5
+#Const C_InfectionTick			50
+#Const C_DefaultColor			<1., 0., 0.>
+#Const C_InfectedColor			<0., 1., 0.>
+#Const C_RoundPauseTime			6000
+#Const C_MatchPauseTime			10000
+//#Const C_InfectedSkin			"file://Skins/Models/ArenaPlayer/Zombie.zip"
 
-#Const		CompatibleMapTypes			"MeleeArena"
-#Const		Version						"2012-08-07"
-#Const		UITickPeriod				200
-#Const		NearDistance				1.5
-#Const		InfectionTickPeriod			100
+#Const C_ImgBaseDir				"file://Media/Manialinks/Shootmania/Common/"
 
-***UIPlayer***
+#Const Description  ""
+
+/* -------------------------------------- */
+// Globales
+/* -------------------------------------- */
+
+declare CSmBlockSpawn[][Integer] SpawnQueue;
+declare Ident RoundInfoLayerId;
+//declare Ident InfectedModelId;
+
+
+***InitServer***
 ***
-UI.BigMessageSound = CUIConfig::EUISound::Notice;
-UI.BigMessage = Airshot::Message(Player);
+/*ItemList_Begin();
+InfectedModelId = ItemList_Add(C_InfectedSkin);
+ItemList_End();*/
+log ("Init Infection ...");
+UIManager.UILayerDestroyAll();
+RoundInfoLayerId = UIManager.UILayerCreate().Id;
 ***
 
-***EndTime***
-***
-EndTime = StartTime + TimeLimit + FirstInfectionTime;
-***
+***StartServer***
+***	
+/* -------------------------------------- */
+// Set mode options
+UseClans = False;
+SM::SetupDefaultVisibility();
+UIManager.UIAll.NoticesFilter_LevelToShowAsBigMessage = CUIConfig::ENoticeLevel::MatchInfo;
+Color::Load(); //?
 
-***Rules***
-***
+UpdateSpawns();
+
+/* -------------------------------------- */
+// Create the rules
 declare ModeName = "Infection";
-declare ModeRules = "Two teams\n\n- Everybody starts in the same team.\n- Afer some seconds one gets infected and changes team.\n- Infected players can infect others by getting near them.\n- They cant shoot.\n- The round ends if everybody is infected or time is up.\n- The match ends if one player has reached the score limit.";
+SpawnScreen::AddSubsection("Rules", "Free for all. You spawn as a survivor, if you die you respawn infected. Infected players can't shoot, but can infect other players by touching them. The match ends when a player reaches the score limit or the round limit is reached.", 0.);
+SpawnScreen::AddSubsection("Round end", "A round ends either if no survivors are left or if the time limit is reached.", 35.);
+SpawnScreen::AddSubsection("Description", """- Survivors are $f00red$g, Infecteds are $0f0green$g.
+- the first infected gets some points if all players are infected""", 60.);
+SpawnScreen::CreateMapInfo();
+SpawnScreen::CreateScores();
+SpawnScreen::CreatePrettyRules(ModeName);
+
+/* -------------------------------------- */
+// Init scores table
+ScoresTable::Load();
+ScoresTable::SetTableWidth(190.);
+ScoresTable::SetColumnWidth("Custom1", 10.);
+ScoresTable::SetDefaultCustom1(C_Survivor);
+ScoresTable::SetColumnWidth("Custom2", 20.);
+ScoresTable::SetDefaultCustom2("--:--.--");
+ScoresTable::SetColumnName("Custom2", "Survival Time");
+ScoresTable::SetColumnWidth("Custom3", 10.);
+ScoresTable::SetDefaultCustom3("$0f00$fff/$f000");
+ScoresTable::SetColumnName("Custom3", "$0f0Inf$fff/$f00Hit");
+ScoresTable::SetColumnWidth("RoundPoints", 5.);
+ScoresTable::SetColumnWidth("Points", 5.);
+ScoresTable::SetTableFormat(2, 7);
+ScoresTable::SetDefaultFooterStats(_("Scorelimit") ^ ": " ^ S_ScoreLimit);
+ScoresTable::Build();
 ***
 
-declare Ident[]	G_SpawnsList;		///< Id of all the BlockSpawns of the map
-declare Ident	G_LatestSpawnId;	///< Id of the last BlockSpawn used
+***InitMap***
+***
+declare CSmBlockPole[Integer]	PoleList;
+declare CSmBlockSpawn[Integer]	SpawnList;
+***
 
-declare CSmPlayer FirstInfected;
+***StartMap***
+***
 
- /// Fill the SpawnsList with all the BlockSpanws of the map
-Void FillSpawnsList() {
-	foreach (BlockSpawn in BlockSpawns) { G_SpawnsList.add(BlockSpawn.Id); }
+/* -------------------------------------- */
+// Init pole
+UIManager.UIAll.Hud3dMarkers = "";
+
+/* -------------------------------------- */
+// Init spawn
+SpawnList.clear();
+foreach (Spawn in BlockSpawns)
+{
+	if (Spawn.Tag == "Spawn") SpawnList[Spawn.Order] = Spawn;
 }
 
-Void WaitForPlayers( Integer count )
+/* -------------------------------------- */
+// Misc init
+ScoresTable::StartMatch();
+Scores::MatchBegin();
+ClanScores[1]		= 0;
+ClanScores[2]		= 0;
+***
+
+***InitRound***
+***
+declare LastInfectionTick = 0;
+declare InfectionStarted = False;
+declare FirstInfected = NullId;
+declare LastScoreLimit = S_ScoreLimit;
+ScoresTable::SetDefaultFooterStats(_("Scorelimit") ^ ": " ^ S_ScoreLimit);
+MB_UseSectionRound = True;
+***
+
+
+***StartRound***
+***
+log("Round " ^ MB_SectionRoundNb);
+Scores::RoundBegin();
+UIManager.UIAll.UISequence		= CUIConfig::EUISequence::Playing;
+UIManager.UIAll.BigMessageSound	= CUIConfig::EUISound::Default;
+
+foreach (Player in AllPlayers)
 {
-	wait (Players.count >= count);
+	declare Integer Infections for Player;
+	declare Integer Hits for Player;
+	Infections = 0;
+	Hits = 0;
+	ScoresTable::SetCustom1(Player, C_Survivor);
+	ScoresTable::SetCustom2(Player, "--:--.--");
+	UpdateScoresTable(Player);
 }
 
-Real Distance ( Vec3 vec1, Vec3 vec2 )
+for (I, 0, 5)
 {
-	return MathLib::Sqrt( (vec1.X - vec2.X) * (vec1.X - vec2.X) + (vec1.Y - vec2.Y) * (vec1.Y - vec2.Y) + (vec1.Z - vec2.Z) * (vec1.Z - vec2.Z));
+	declare Bot = CreateBotPlayer(NullId, 0, 200, FindSpawn(0), Now + 1000);
+	declare Boolean Spawned for Bot;
+	Spawned = True;
 }
 
-CSmPlayer[] PlayersNearPlayer(CSmPlayer Player)
+if (PlayerCount() < S_MinPlayers)
 {
-	declare CSmPlayer[] RetPlayers;
+	UIManager.UIAll.BigMessage		= "$f92Waiting for Players";
+	UIManager.UIAll.StatusMessage	= TL::Compose("At least $f00%1 $fffplayers are needed.", TL::ToText(S_MinPlayers));
+	StartTime = Now + 1000;
+	EndTime = -1;
 	
-	foreach(XPlayer in Players)
+	while (PlayerCount() < S_MinPlayers)
 	{
-		if ( Distance (XPlayer.Position, Player.Position) <= NearDistance && XPlayer != Player)
+		foreach (Player in Players)
 		{
-			RetPlayers.add(XPlayer);
+			if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned)
+			{
+				Player.ForceColor = <0., 0., 0.>;
+				SM::SpawnPlayer(Player, 0, FindSpawn(0), Now + 1000);
+				SetPlayerAmmoMax(Player, CSmMode::EWeapon::Rocket, 4);
+				SetPlayerAmmo(Player, CSmMode::EWeapon::Rocket, 2);
+			}
+		}
+		
+		foreach (Player in BotPlayers)
+		{
+			if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned)
+			{
+				Player.ForceColor = <-1., -1., -1.>;
+				SM::SpawnPlayer(Player, 0, FindSpawn(0), Now + 1000);
+			}
+		}
+		
+		foreach (Event in PendingEvents)
+		{
+			if (Event.Type == CSmModeEvent::EType::OnHit)
+			{
+				if (Event.Victim == Event.Shooter)
+				{
+					Discard(Event);
+				}
+				else
+				{
+					PassOn(Event);
+				}
+			}
+			else
+			{
+				PassOn(Event);
+			}
+		}
+		yield;
+	}
+	
+	SM::UnspawnAllPlayers();
+	UIManager.UIAll.BigMessage		= "";
+	UIManager.UIAll.StatusMessage	= "";
+}
+
+foreach (Player in AllPlayers)
+{
+	declare Boolean Infected for Player;
+	declare Boolean Spawned for Player;
+	
+	Infected = False;
+	Spawned = False;
+}
+
+StartTime = Now + 1000;
+EndTime = Now + 1000 + S_InfectionTime;
+
+UIManager.UIAll.UILayers.add(UIManager.UILayers[RoundInfoLayerId]);
+UpdateRoundLayer();
+***
+
+
+***InitTurn***
+***
+MB_UseSectionTurn = False;
+***
+
+***OnNewPlayer***
+***
+ScoresTable::RestoreCustomScores(Player);
+declare UI <=> UIManager.GetUI(Player);
+***
+
+***OnNewSpectator***
+***
+ScoresTable::RestoreCustomScores(Spectator);
+declare UI <=> UIManager.GetUI(Spectator);
+if (UI != Null) {
+	UI.SpectatorForcedClan		= 0;
+	UI.SpectatorForceCameraType	= 15;
+}
+if (Spectator.Score != Null) {
+	declare WaitForRespawn	for Spectator.Score = False;
+	WaitForRespawn = False;
+}
+***
+
+***FirstInfection***
+***
+Message::SendStatusMessage(Player.Name ^ "$z$s is the first infecteded.", 4000, 1);
+Message::SendBigMessage(Player, "$0f0First Infected!", 4000, 1);
+***
+
+***SpawnPlayer***
+***
+declare Infected for Player = False;
+declare Spawned for Player = False;
+declare Integer SpawnTime for Player;
+if (((InfectionStarted && S_InfectNewPlayers) || Spawned) && !Infected)
+{
+	+++OnInfect+++
+	Infect(Player);
+}
+SpawnTime = Now;
+SM::SpawnPlayer(Player, 0, FindSpawn(0), Now + 1000);
+if (!Infected)
+{
+	SetPlayerAmmoMax(Player, CSmMode::EWeapon::Rocket, 4);
+	Player.ForceColor = C_DefaultColor;
+	//Player.ForceModelId = NullId;
+}
+else if (InfectedCount() > 1)
+{
+	SetPlayerAmmoMax(Player, CSmMode::EWeapon::Rocket, 0);
+}
+Spawned = True;
+***
+
+***OnTouch***
+***
+declare Infections for Player = 0;
+if (S_RespawnOnInfection)
+{
+	UnspawnPlayer(Victim);
+}
+Infections += 1;
+UpdateScoresTable(Player);
+Scores::AddPoints(Player, S_InfectionScore);
+Message::SendStatusMessage(Victim.Name ^ "$z$s is infected.", 4000, 1);
+Message::SendBigMessage(Victim, "$0f0Infected!", 4000, 1);
+foreach (_Player in Players)
+{
+	declare Text Message;
+	if (_Player == Player)
+	{
+		Message = TL::Compose("$0f0You infected $fff%2", Player.Name, Victim.Name);
+	}
+	else if (_Player == Victim)
+	{
+		Message = TL::Compose("%1 $z$s$0f0infected you", Player.Name, Victim.Name);
+	}
+	else
+	{
+		Message = TL::Compose("%1 $z$sinfected %2", Player.Name, Victim.Name);
+	}
+	UIManager.GetUI(_Player).SendNotice(Message, CUIConfig::ENoticeLevel::PlayerInfo, Player.User, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0);
+} 
++++OnInfect+++
+***
+
+***OnHit***
+***
+declare Hits for Event.Shooter = 0;
+Hits += 1;
+UpdateScoresTable(Event.Shooter);
+***
+
+***PlayLoop***
+***
+Message::Loop();
+if (LastScoreLimit != S_ScoreLimit)
+{
+	ScoresTable::SetDefaultFooterStats(_("Scorelimit") ^ ": " ^ S_ScoreLimit);
+	ScoresTable::Build();
+	LastScoreLimit = S_ScoreLimit;
+}
+if (LastInfectionTick + C_InfectionTick < Now)
+{
+	LastInfectionTick = Now;
+	foreach (Player in AllPlayers)
+	{
+		if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::Spawned && IsInfected(Player))
+		{
+			foreach (Victim in AllPlayers)
+			{
+				if (Victim.SpawnStatus == CSmPlayer::ESpawnStatus::Spawned && !IsInfected(Victim) && ML::Distance(Player.Position, Victim.Position) <= C_NearDistance)
+				{
+					Infect(Victim);
+					+++OnTouch+++
+				}
+			}
 		}
 	}
-	
-	return RetPlayers;
 }
 
-/* ------------------------------------- */
-/** Spawn a player
- *
- * @param	_Player		The player to spawn
- */
-Void SpawnPlayers(CSmPlayer _Player, Integer Clan) {
-	if (G_SpawnsList.count == 0) FillSpawnsList();
-
-	declare SpawnId = NullId;
-	while (True) {
-		SpawnId = G_SpawnsList[MathLib::Rand(0, G_SpawnsList.count - 1)];
-		if (SpawnId != G_LatestSpawnId) break;
-		if (G_SpawnsList.count == 1) break;
-	}
-	if(Clan == 2)
+if (EndTime > -1 && EndTime <= Now)
+{
+	if (!InfectionStarted)
 	{
-		if(FirstInfectedNucleus && FirstInfected.Id == _Player.Id)
+		declare Rand = (Now * ML::Rand(0, 100)) % (Players.count + BotPlayers.count);
+		declare CSmPlayer Player;
+		if (Rand > Players.count - 1)
 		{
-			SetPlayerWeapon(_Player, CSmMode::EWeapon::Nucleus, False);
+			Player = BotPlayers[Rand - Players.count];
 		}
 		else
 		{
-			SetPlayerWeapon(_Player, CSmMode::EWeapon::Rocket, False);
+			Player = Players[Rand];
 		}
-	}
-	else
-	{
-		BalancedWeapons::SetPlayerWeapon(_Player, True);
-	}
-	SM::SpawnPlayer(_Player, Clan, BlockSpawns[SpawnId]);
-	if (Clan == 2)
-	{
-		SetPlayerAmmo(_Player, CSmMode::EWeapon::Rocket, 0);
-		SetPlayerAmmoMax(_Player, CSmMode::EWeapon::Rocket, 0);
-		SetPlayerAmmo(_Player, CSmMode::EWeapon::Nucleus, 1);
-		SetPlayerAmmoMax(_Player, CSmMode::EWeapon::Nucleus, 1);
-		_Player.ArmorMax = 200;
-		_Player.Armor = 200;
-		_Player.StaminaGain = 1.;
-	}
-	else
-	{
-		SetPlayerAmmo(_Player, CSmMode::EWeapon::Rocket, 2);
-		SetPlayerAmmoMax(_Player, CSmMode::EWeapon::Rocket, 4);
-		_Player.ArmorMax = 100;
-		_Player.Armor = 100;
-		_Player.StaminaGain = 0.5;
-	}
-	
-	G_LatestSpawnId = SpawnId;
-	declare Tmp = G_SpawnsList.remove(SpawnId);
-}
-
-/* ------------------------------------- */
-/** Get the map name manialink string.
- *
- * @return		The manialink string
- */
- 
-Text UpdateLayerSpawnScreen() {
-	declare Text ML;
-	
-	---Rules---
-	
-	ML = """
-		<script><!--
-			main () {
-				declare FrameRules	<=> Page.GetFirstChild("FrameRules");
-				declare FrameShow	<=> Page.GetFirstChild("FrameShow");
-				declare ShowRules = False;
-					
-				while(True) {
-					if (ShowRules) {
-						FrameRules.Show();
-						FrameShow.Hide();
-					} else {
-						FrameRules.Hide();
-						FrameShow.Show();
-					}
-
-					yield;
-
-					// process events.
-					foreach (Event in PendingEvents) {
-						switch (Event.Type) {
-							case CMlEvent::Type::MouseClick :
-							{		
-								if (Event.ControlId == "FrameRules") ShowRules = !ShowRules;
-							}
-					
-							case CMlEvent::Type::KeyPress:
-							{
-								if (Event.CharPressed == "2424832") ShowRules = !ShowRules;	// F1
-							}
-						}
-					}
-				}
-			}
-		--></script>
-		<frame posn="0 -70 0" id="FrameShow">
-			<quad posn="0 0 10" sizen="140 20" halign="center" valign="center" style="Bgs1InRace" substyle="BgTitle3_5" />
-			<label posn="0 0 11" scale="2" halign="center" valign="center" style="TextTitle3" text="Press F1 to show rules" />
-		</frame>
-		<frame posn="0 50 1" id="FrameRules">
-			<frame posn="0 0 5">
-				<quad posn="0 0 10" sizen="120 20" halign="center" valign="center" style="Bgs1InRace" substyle="BgTitle3_5" />
-				<label posn="0 0 11" scale="2" halign="center" valign="center" style="TextTitle3" text="$fff{{{ ModeName }}}" />
-			</frame>
-			<frame posn="0 -10 5">
-				<quad posn="0 0 10" sizen="300 120" halign="center" bgcolor="222c" />
-				<label posn="-145 -5 11" sizen="145 5" scale="2" autonewline="1" style="TextCardSmallScores2" text="{{{ ModeRules }}}" />
-			</frame>
-		</frame>
-	""";
-	
-	return ML;
-}
-
-main() {
-	declare BotModelId = NullId;
-	declare MatchNumber = 0;
-		
-	UseClans = True;
-	Top::AddTop("Infections", 5);
-	Top::AddTop("Damages", 5);
-	
-	Teams[0].Name = "Survivors";
-	Teams[1].Name = "Infecteds";
-	
-	BotModelId = ItemList_Add("Characters/OrganicSmall.Item.gbx");
-	
-	declare LayerTops <=> UIManager.UILayerCreate();
-	declare LayerRoundInfo <=> UIManager.UILayerCreate();
-	
-	while( !ServerShutdownRequested ) {
-		LoadMap();
-		UseClans = True;
-		Top::MatchBegin();
-		Score::MatchBegin(False);	
-		Airshot::MatchBegin();
-		BalancedWeapons::MatchBegin();
-		Victory::MatchBegin();
-		
-		declare MapWinnerId = NullId;
-		+++MatchBegin+++
-		
-		declare Round = 0;				
-		
-		UIManager.ResetAll();
-		UIManager.UIAll.UISequence = CUIConfig::EUISequence::Intro;
-		UIManager.UIAll.SendNotice(
-			_("New match"), CUIConfig::ENoticeLevel::MatchInfo, 
-			Null, CUIConfig::EAvatarVariant::Default, 
-			CUIConfig::EUISound::StartRound, 0
-		);
-		
-		ClanScores[1] = 0;
-		ClanScores[2] = 0;	
-		while( Victory::NoMatchWinner() && !MatchEndRequested ) 
-		{				
-			UIManager.ResetAll();
-			UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
-
-			Score::RoundBegin();
-			Top::RoundBegin();
-			Airshot::RoundBegin();
-			BalancedWeapons::RoundBegin();
-			Victory::RoundBegin();
-			+++RoundBegin+++
-				
-			SM::SetupDefaultVisibility();
-
-			declare LatestUITick = Now;
-			declare LatestInfectionTick = Now;
-			declare InfectionStarted = False;
-			
-			StartTime = Now + RespawnTime;
-			
-			SetNbFakePlayers(NumBots, 0);
-			
-			UIManager.UIAll.BigMessage = "Waiting for 2 players";
-			
-			if (NumBots < 1)
-			{
-				WaitForPlayers( 2 );
-			}
-			
-			UIManager.UIAll.BigMessage = "";
-			
-			foreach(Player in Players)
-			{
-				SetPlayerClan(Player, 1);
-				SpawnPlayers(Player, 1);
-			}
-			
-			for (I, 1, NumBots)
-			{
-				CreateBotPlayer(1, 2, BlockSpawns[0], Now, 1);
-			}
-			
-			---EndTime---
-			while ( Victory::NoRoundWinner() && !MatchEndRequested ) {			
-				yield;
-
-				if(!InfectionStarted && Now > StartTime + FirstInfectionTime)
-				{
-					UIManager.UIAll.SendNotice(
-					"$sInfection started...", CUIConfig::ENoticeLevel::MatchInfo, 
-					Null, CUIConfig::EAvatarVariant::Default, 
-					CUIConfig::EUISound::StartRound, 0
-					);
-					
-					FirstInfected <=> Players[(Now * MathLib::Rand(0, 100)) % Players.count];
-					UnspawnPlayer(FirstInfected);
-					
-					UIManager.UIAll.SendNotice(
-					FirstInfected.Name ^ "$z$0f0$s is infected!", CUIConfig::ENoticeLevel::Default, 
-					FirstInfected.User, CUIConfig::EAvatarVariant::Default, 
-					CUIConfig::EUISound::Default, 0
-					);
-					
-					InfectionStarted = True;
-				}
-				
-				foreach(Event, PendingEvents) {	
-					if( Event.Type == CSmModeEvent::EType::OnHit ) {				
-						if ( Event.Shooter == Null || Event.Victim == Null || Event.Shooter == Event.Victim ) {
-							Discard(Event);
-						//} else if ( Event.Victim.CurrentClan == 1 && Event.WeaponNum != GetWeaponIndex(CSmMode::EWeapon::Nucleus)) {
-							//Discard(Event);		
-						} else {
-							if(Event.Damage > 0) {
-								Score::AddPoints( Event.Shooter, 1);									
-								Top::IncrementPlayerPoints("Damages", Event.Shooter, DamageScore);
-								Airshot::OnHit(Event.Shooter, Event.Victim);
-							}
-							PassOn(Event);
-						}
-					} else if (Event.Type == CSmModeEvent::EType::OnArmorEmpty) {		
-						BalancedWeapons::OnOut(Event.Shooter, Event.Victim);
-						PassOn(Event);						
-					} else if (Event.Type == CSmModeEvent::EType::OnCapture) {	
-						PassOn(Event);						
-					} else{
-						PassOn(Event);
-					}
-				}
-				+++Update+++	
-								
-				///////////////////////////////////////////////////
-				// Shields 		
-				foreach(Player in Players) {
-					Player.IsHighlighted = Player.Armor > 0;
-				}
-				///////////////////////////////////////////////////
-				// Spawning players
-				foreach(Player in Players) {
-					if (Player.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned) continue;
-					if ( StartTime + FirstInfectionTime > Now)
-						SpawnPlayers(Player, 1);
-					else
-						SpawnPlayers(Player, 2);
-				}
-				
-				///////////////////////////////////////////////////
-				// Check infection
-				if (Now > LatestInfectionTick + InfectionTickPeriod)
-				{
-					LatestInfectionTick = Now;
-					foreach(Player in Players)
-					{
-						if (Player.CurrentClan == 2 && Player.SpawnStatus == CSmPlayer::ESpawnStatus::Spawned)
-						{
-							declare CSmPlayer[] NearPlayers = PlayersNearPlayer(Player);
-						
-							foreach(NearPlayer in NearPlayers)
-							{
-								if (NearPlayer.CurrentClan == 1)
-								{
-									Score::AddPoints( Player, 1);
-									
-									Top::IncrementPlayerPoints("Infections", Player, InfectionScore);
-								
-									UIManager.UIAll.SendNotice(
-									"$s" ^ Player.Name ^ "$z $0f0$sinfected $z$s" ^ NearPlayer.Name ^ "$z$0f0$s!", CUIConfig::ENoticeLevel::Default, 
-									Player.User, CUIConfig::EAvatarVariant::Default, 
-									CUIConfig::EUISound::Default, 0
-									);
-								
-									UnspawnPlayer(NearPlayer);
-								}
-							}
-						}
-					}
-				}
-				
-				if(ClansNbPlayers[1] == 0)
-				{
-					sleep(3000);
-					Score::AddPoints( FirstInfected, FirstInfectedBonus);
-					//Victory::SetRoundWinnerIfNoWinner(2);
-				}
-				
-				if(ClansNbPlayers[2] == 0 && InfectionStarted)
-				{
-					sleep(3000);
-					Victory::SetRoundDrawIfNoWinner();
-				}
-				
-				///////////////////////////////////////////////////
-				// Victory	
-				if(Now >= EndTime) {
-					foreach(Player in Players)
-					{
-						if(Player.CurrentClan == 1)
-						{
-							Score::AddPoints(Player, SurvivalScore);
-						}
-					}
-					Victory::SetRoundWinnerIfNoWinner(1);
-				}
-				
-				///////////////////////////////////////////////////
-				// UI				
-				if ( Now > LatestUITick + UITickPeriod){
-					LatestUITick = Now;	
-					
-					declare ScoreText = TextLib::ToText(ClansNbPlayers[2]) ^ "/" ^ TextLib::ToText(Players.count) ^ " infected";
-					
-					LayerRoundInfo.ManialinkPage = """<label posn="150 -80" valign="bottom" halign="right">{{{ScoreText}}}</label>""";
-					
-					if(((Now - StartTime) / 8000) % 2 == 0) 
-						LayerTops.ManialinkPage = Top::GetFrameTop("Infections", _("Top 5 Infections"), "130 -30", "");
-					else 
-						LayerTops.ManialinkPage = Top::GetFrameTop("Damages", _("Top 5 Score"), "130 -30", "");
-					
-					UIManager.UIAll.UILayers.clear();
-					UIManager.UIAll.UILayers.add(LayerTops);
-					UIManager.UIAll.UILayers.add(LayerRoundInfo);  
-										
-					declare PlayerClan1Id = NullId;
-					declare PlayerClan2Id = NullId;
-					foreach(Player in Players) {
-						if(PlayerClan1Id == NullId && Player.CurrentClan == 1) PlayerClan1Id = Player.Id;
-						if(PlayerClan2Id == NullId && Player.CurrentClan == 2) PlayerClan2Id = Player.Id;
-						if(PlayerClan1Id != NullId && PlayerClan2Id != NullId) break;
-					}
-					
-					if(PlayerClan1Id != NullId && PlayerClan2Id != NullId) {
-						UIManager.UIAll.OverlayScoreSummary = True;
-						UIManager.UIAll.ScoreSummary_Player1 = PlayerClan1Id;
-						UIManager.UIAll.ScoreSummary_Points1 = ClanScores[1];
-						UIManager.UIAll.ScoreSummary_MatchPoints1 = -1;
-						UIManager.UIAll.ScoreSummary_Player2 = PlayerClan2Id;
-						UIManager.UIAll.ScoreSummary_Points2 = ClanScores[2];
-						UIManager.UIAll.ScoreSummary_MatchPoints2 = -1;
-					} else {
-						UIManager.UIAll.OverlayScoreSummary = False;
-					}
-					
-					declare UsedLayers = Ident[];
-					foreach(Player in Players) {
-						declare UI <=> UIManager.GetUI(Player);
-						if (UI==Null) continue;
-						
-						declare CUILayer LayerSpawnScreen;
-						if (UI.UILayers.count != 1) {
-							LayerSpawnScreen <=> UIManager.UILayerCreate();
-							LayerSpawnScreen.Type = CUILayer::EUILayerType::ScreenIn3d;
-							UI.UILayers.add(LayerSpawnScreen);
-						} else {
-							LayerSpawnScreen <=> UI.UILayers[0];
-						}
-						UsedLayers.add(LayerSpawnScreen.Id);
-						LayerSpawnScreen.ManialinkPage = UpdateLayerSpawnScreen();
-						
-						+++UIPlayer+++
-					}
-					+++UIAll+++	
-					// Remove layers
-					declare LayersToRemove = Ident[];
-					UsedLayers.add(LayerTops.Id);UsedLayers.add(LayerRoundInfo.Id);
-					foreach (Layer in UIManager.UILayers) {
-						if (!UsedLayers.exists(Layer.Id)) {
-							LayersToRemove.add(Layer.Id);
-						}
-					}
-					foreach (LayerId in LayersToRemove) {
-						UIManager.UILayerDestroy(UIManager.UILayers[LayerId]);
-					}		
-				}
-				///////////////////////////////////////////////////				
-			}
-
-			///////////////////////////////////////////////////	
-			// end round sequence	
-			StartTime = -1;
+		+++FirstInfection+++
+		log ("First infection");
+		InfectionStarted = True;
+		if (S_TimeLimit > 0)
+		{
+			EndTime = Now + S_TimeLimit;
+		}
+		else
+		{
 			EndTime = -1;
-		
-		
-			LayerTops.ManialinkPage = 
-				Top::GetFrameTop("Infections", _("Top 5 Infections"), "130 0", "") ^
-				Top::GetFrameTop("Damages", _("Top 5 Score"), "130 -30", "");
-			UIManager.UIAll.UILayers.clear();
-			UIManager.UIAll.UILayers.add(LayerTops);
+		}
+		Infect(Player);
+		ScoresTable::SetCustom1(Player, C_FirstInfected);
+		FirstInfected = Player.Id;
+	}
+	else
+	{
+		MB_StopRound = True;
+	}
+}
 
-			foreach(Player in Players) {
-				declare UI <=> UIManager.GetUI(Player);
-				if (UI==Null) continue;
-				UI.BigMessage = "";
-			}
-			
-			sleep(1700);
-			
-			UIManager.UIAll.BigMessageSound = CUIConfig::EUISound::EndRound;
-			if ( Victory::IsRoundWinner(1) ) {
-				UIManager.UIAll.BigMessage = TextLib::Compose(_("$<%1$> wins the round!"), Teams[0].ColorizedName);	
-				Clan1Score += 1;			
-			} else if ( Victory::IsRoundWinner(2) ) {
-				UIManager.UIAll.BigMessage = TextLib::Compose(_("$<%1$> wins the round!"), Teams[1].ColorizedName);
-				Clan2Score += 1;
-			} else {
-				UIManager.UIAll.BigMessage = _("Draw round");
-			}
-			
-			//Victory::SetMatchWinnerFromScore(RoundsToWin, RoundGapToWin, RoundsLimit);
-			
-			UIManager.UIAll.UISequence = CUIConfig::EUISequence::EndRound;					
-			
-			foreach(Player in Players) {									
-				UnspawnPlayer(Player);					
-			}
-			
-			sleep(3*1000);
-			
-			UIManager.UIAll.UILayers.clear();
-			UIManager.UIAll.UILayers.add(LayerTops);
+if (InfectionStarted && InfectedCount() < 1)
+{
+	MB_StopRound = True;
+}
 
-			sleep(4*1000);
-						
-			+++RoundEnd+++	
-			Score::RoundEnd();			
-			Top::RoundEnd();
-			Airshot::RoundEnd();
-			BalancedWeapons::RoundEnd();
-			Victory::RoundEnd();
+if (InfectedCount() >= PlayerCount())
+{
+	MB_StopRound = True;
+}
 
-			/* ------------------------------------- */
-			// Map end conditions
-			declare MaxPoints = 0;
-			foreach (Player in Players) {
-				if (Player.Score != Null && Player.Score.Points >= MaxPoints) {
-					if (Player.Score.Points > MaxPoints) {
-						MapWinnerId = Player.Id;
-					} else if (Player.Score.Points == MaxPoints) {
-						MapWinnerId = NullId;
+if (PlayerCount() < S_MinPlayers)
+{
+	MB_StopRound = True;
+}
+
+/* -------------------------------------- */
+// Manage events
+foreach (Event in PendingEvents)
+{
+	if (Event.Type == CSmModeEvent::EType::OnHit)
+	{
+		if (Event.Shooter == Event.Victim)
+		{
+			Discard (Event);
+		}
+		else if(!IsInfected(Event.Victim))
+		{
+			if (IsInfected(Event.Shooter) && S_FirstInfectedShoot && InfectedCount() <= 1)
+			{
+				declare Player = Event.Shooter;
+				declare Victim = Event.Victim;
+				Infect(Event.Victim);
+				+++OnTouch+++
+				Discard(Event);
+			}
+			else if (!S_HitSurvivors)
+			{
+				Discard(Event);
+			}
+			else
+			{
+				declare Points = Event.Damage / 100 * S_HitScore;
+				Scores::AddPoints(Event.Shooter, Points);
+				Event.ShooterPoints = Points;
+				PassOn(Event);
+				+++OnHit+++
+			}
+		}
+		else
+		{
+			declare Points = Event.Damage / 100 * S_HitScore;
+			Scores::AddPoints(Event.Shooter, Points);
+			Event.ShooterPoints = Points;
+			PassOn(Event);
+			+++OnHit+++
+		}
+	}
+	else if (Event.Type == CSmModeEvent::EType::OnPlayerRequestRespawn)
+	{
+		if (Event.Player != Null)
+		{
+			
+		}
+		PassOn(Event);
+	}
+	else if (Event.Type == CSmModeEvent::EType::OnCommand)
+	{
+		switch (Event.CommandName)
+		{
+			case "Infect":
+			{
+				if (Event.CommandValueInteger > 0)
+				{
+					for (I, 1, Event.CommandValueInteger)
+					{
+						InfectRandomSurvivor();
 					}
-					MaxPoints = Player.Score.Points;
 				}
 			}
-
-			if (MaxPoints >= ScoreLimit) 
-			{
-				break;
-			}			
-			
-			Round += 1;			
 		}
+	}
+	else
+	{
+		PassOn(Event);
+	}
+}
 
-		///////////////////////////////////////////////////	
-		// end match sequence					
-			
-		UIManager.ResetAll();
-		UIManager.UIAll.UISequence = CUIConfig::EUISequence::Outro;
-		
-		UIManager.UIAll.BigMessageSound = CUIConfig::EUISound::EndRound;
-		MatchNumber += 1;
-		if (Players.existskey(MapWinnerId)) {
-			UIManager.UIAll.BigMessage = TextLib::Compose(_("$<%1$> wins the match!"), Players[MapWinnerId].Name);
-		} else {
-			UIManager.UIAll.BigMessage = _("|Match|Draw");
-		}	
-		sleep(6*1000);
-		
-		UseClans = False;
-		
-		
-		
-		+++MatchEnd+++
-		Score::MatchEnd(True);
-		Top::MatchEnd();	
-		Airshot::MatchEnd();
-		BalancedWeapons::MatchEnd();
-		Victory::MatchEnd();	
-		
-		UIManager.UIAll.BigMessage = "";
-		UIManager.UIAll.UISequence = CUIConfig::EUISequence::Podium;				
-		
-		sleep(10*1000);
+foreach(Player in Players)
+{
+	if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned)
+	{
+		---SpawnPlayer---
+	}
+}
 
-		UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
-		UIManager.UIAll.UILayers.clear();
+foreach (Player in BotPlayers)
+{
+	if (Player.SpawnStatus == CSmPlayer::ESpawnStatus::NotSpawned)
+	{
+		---SpawnPlayer---
+	}
+}
+***
 
-		sleep(1*1000);
-			
-		MatchEndRequested = False;
+***EndRound***
+***
+sleep(500);
+StartTime = -1;
+EndTime = -1;
+if (FirstInfected != NullId && AllPlayers.existskey(FirstInfected) 
+		&& AllPlayers[FirstInfected].Score != Null 
+		&& InfectedCount() >= PlayerCount())
+{
+	Scores::AddPoints(AllPlayers[FirstInfected], InfectedCount());
+}
+/* -------------------------------------- */
+// Clean UI
+Message::CleanAllMessages();
 
-		UnloadMap();
+/* -------------------------------------- */
+// Display result
+declare tmp = UIManager.UIAll.UILayers.removekey(RoundInfoLayerId);
+UIManager.UIAll.UISequence				= CUIConfig::EUISequence::EndRound;
+UIManager.UIAll.BigMessageSound			= CUIConfig::EUISound::EndRound;
+UIManager.UIAll.ScoreTableVisibility	= CUIConfig::EVisibility::ForcedVisible;
+UIManager.UIAll.StatusMessage			= "";
+sleep(2000);
+
+Scores::RoundEnd();
+
+if (InfectedCount() >= PlayerCount())
+{
+	UIManager.UIAll.BigMessage			= "All players are infected.";
+}
+else if (EndTime > -1 && EndTime <= Now)
+{
+	UIManager.UIAll.BigMessage 			= "Time limit reached.";
+	declare Survivors = PlayerCount() - InfectedCount();
+	if (Survivors > 1)
+	{
+		UIManager.UIAll.StatusMessage 	= TL::Compose("$0f0%1 $fffplayers survived.", TL::ToText(Survivors));
+	}
+	else
+	{
+		UIManager.UIAll.StatusMessage 	= "$0f01 $fffplayer survived.";
+	}
+}
+else if (PlayerCount() < S_MinPlayers)
+{
+	UIManager.UIAll.BigMessage			= "Not enough players.";
+	UIManager.UIAll.StatusMessage		= TL::Compose("At least $f00%1 $fffplayers are needed.", TL::ToText(S_MinPlayers));
+}
+else if (InfectedCount() < 1)
+{
+	UIManager.UIAll.BigMessage 			= "No more infected players.";
+}
+sleep(C_RoundPauseTime);
+UIManager.UIAll.StatusMessage		 	= "";
+UIManager.UIAll.BigMessage 				= "";
+UIManager.UIAll.ScoreTableVisibility	= CUIConfig::EVisibility::Normal;
+/* -------------------------------------- */
+// Go to next round
+SM::UnspawnAllPlayers();
+DestroyAllBotPlayers();
+/* -------------------------------------- */
+if (S_ScoreLimit > 0)
+{
+	foreach (Player in Players)
+	{
+		if (Player.Score != Null && Player.Score.Points >= S_ScoreLimit)
+		{
+			MB_StopMap = True;
+			break;
+		}
+	}
+}
+
+if (S_RoundLimit > 0 && MB_SectionRoundNb >= S_RoundLimit)
+{
+	MB_StopMap = True;
+}
+***
+
+***EndMap***
+***
+/* -------------------------------------- */
+// Update map scores
+ScoresTable::EndMatch();
+Scores::MatchEnd();
+UIManager.UIAll.BigMessage		= "";
+UIManager.UIAll.StatusMessage	= "";
+declare CSmPlayer[] MaxScores;
+declare Integer MaxScore = 0;
+
+foreach (Player in Players)
+{
+	if (Player.Score != Null)
+	{
+		if (MaxScore < Player.Score.Points)
+		{
+			MaxScores.clear();
+			MaxScores.add(Player);
+			MaxScore = Player.Score.Points;
+		}
+		else if (MaxScore == Player.Score.Points)
+		{
+			MaxScores.add(Player);
+		}
+	}
+}
+
+if (MaxScore == 0)
+{
+	UIManager.UIAll.BigMessage = _("|Match|Draw");
+}
+else
+{
+	declare Text PlayerNames = MaxScores[0].Name;
+	
+	if (MaxScores.count > 1)
+	{
+		for (I, 1, MaxScores.count - 1)
+		{
+			if (I < MaxScores.count - 1)
+			{
+				PlayerNames ^= ", " ^ MaxScores[I].Name;
+			}
+			else
+			{
+				PlayerNames ^= "and " ^ MaxScores[I].Name;
+			}
+		}
 	}
 	
-	UIManager.UILayerDestroy(LayerTops);
-	UIManager.UILayerDestroy(LayerRoundInfo);
+	UIManager.UIAll.BigMessage = TL::Compose("%1 $z$swon the match.", PlayerNames);
+}
+
+/* -------------------------------------- */
+// Display result
+UIManager.UIAll.UISequence				= CUIConfig::EUISequence::EndRound;
+UIManager.UIAll.BigMessageSound			= CUIConfig::EUISound::EndRound;
+UIManager.UIAll.ScoreTableVisibility	= CUIConfig::EVisibility::ForcedVisible;
+sleep(1000);
+UIManager.UIAll.UISequence				= CUIConfig::EUISequence::Podium;
+sleep(C_MatchPauseTime);
+UIManager.UIAll.ScoreTableVisibility	= CUIConfig::EVisibility::Normal;
+UIManager.UIAll.BigMessage				= "";
+***
+	
+***EndServer***
+***
+/* -------------------------------------- */
+// Clean the UI
+SpawnScreen::DestroyRules();
+SpawnScreen::DestroyMapInfo();
+UIManager.ResetAll();
+UIManager.UILayerDestroyAll();
+
+/* -------------------------------------- */
+// Stop the library
+Color::Unload();
+ScoresTable::Unload();
+***
+
+Void UpdateSpawns(Integer Clan)
+{
+	foreach(Spawn in BlockSpawns)
+	{
+		if (!UseClans)
+		{
+			SpawnQueue[0].add(Spawn);
+		}
+		else if(Spawn.Order == Clan)
+		{
+			SpawnQueue[Spawn.Order].add(Spawn);
+		}
+	}
+}
+
+Void UpdateSpawns()
+{
+	SpawnQueue = [0=>CSmBlockSpawn[], 1=>CSmBlockSpawn[], 2=>CSmBlockSpawn[]];
+	foreach(Spawn in BlockSpawns)
+	{
+		if (!UseClans)
+		{
+			SpawnQueue[0].add(Spawn);
+		}
+		else
+		{
+			SpawnQueue[Spawn.Order].add(Spawn);
+		}
+	}
+}
+
+CSmBlockSpawn FindSpawn(Integer Clan)
+{
+	declare CSmBlockSpawn[] Spawns;
+	if (UseClans)
+	{
+		if (SpawnQueue[Clan].count < 1)
+		{
+			UpdateSpawns(Clan);
+		}
+		Spawns = SpawnQueue[Clan];
+	}
+	else
+	{
+		if (SpawnQueue[0].count < 1)
+		{
+			UpdateSpawns();
+		}
+		Spawns = SpawnQueue[0];
+	}
+	declare CSmBlockSpawn Spawn = Spawns[0];
+	if (UseClans)
+	{
+		declare ADV = SpawnQueue[Clan].remove(Spawn);
+	}
+	else
+	{
+		declare ADV = SpawnQueue[0].remove(Spawn);
+	}
+	return Spawn;
+}
+
+Boolean IsInfected(CSmPlayer Player)
+{
+	declare Infected for Player = False;
+	
+	return Infected;
+}
+
+Integer InfectedCount()
+{
+	declare Count = 0;
+	foreach (Player in Players)
+	{
+		if (IsInfected(Player))
+		{
+			Count += 1;
+		}
+	}
+	foreach (Player in BotPlayers)
+	{
+		if (IsInfected(Player))
+		{
+			Count += 1;
+		}
+	}
+	
+	return Count;
+}
+
+Integer PlayerCount()
+{
+	return Players.count + BotPlayers.count;
+}
+
+Text UpdateRoundML()
+{
+	return """<label posn="120 -70" text="{{{InfectedCount()}}}/{{{PlayerCount()}}} infected" />""";
+}
+
+Void UpdateRoundLayer()
+{
+	UIManager.UILayers[RoundInfoLayerId].ManialinkPage = UpdateRoundML();
+}
+
+Void Infect(CSmPlayer Player)
+{
+	declare Boolean Infected for Player;
+	declare Integer SpawnTime for Player;
+	
+	Infected = True;
+	Player.ForceColor = C_InfectedColor;
+	SetPlayerWeapon(Player, CSmMode::EWeapon::Rocket, False);
+	if (InfectedCount() <= 1 && S_FirstInfectedShoot)
+	{
+		SetPlayerAmmoMax(Player, CSmMode::EWeapon::Rocket, 1);
+	}
+	else
+	{
+	
+		foreach (Player in AllPlayers)
+		{
+			if (IsInfected(Player))
+			{
+				SetPlayerAmmoMax(Player, CSmMode::EWeapon::Rocket, 0);
+			}
+		}
+	}
+	
+	UpdateRoundLayer();
+	
+	ScoresTable::SetCustom1(Player, C_Infected);
+	ScoresTable::SetCustom2(Player, TL::TimeToText(Now - SpawnTime, True));
+}
+
+Void InfectRandomSurvivor()
+{
+	declare Ident[] Survivors;
+	
+	foreach (Player in Players)
+	{
+		if (!IsInfected(Player))
+		{
+			Survivors.add(Player.Id);
+		}
+	}
+	
+	foreach (Bot in BotPlayers)
+	{
+		if (!IsInfected(Bot))
+		{
+			Survivors.add(Bot.Id);
+		}
+	}
+	
+	if (Survivors.count > 0)
+	{
+		Infect(AllPlayers[Survivors[ML::Rand(0, Survivors.count - 1)]]);
+	}
+}
+
+Void UpdateScoresTable(CSmPlayer Player)
+{
+	declare Infections for Player = 0;
+	declare Hits for Player = 0;
+	
+	ScoresTable::SetCustom3(Player, "$0f0" ^ Infections ^ "$fff/$f00" ^ Hits);
 }
