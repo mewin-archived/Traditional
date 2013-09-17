@@ -13,7 +13,7 @@
 #Include "Libs/Nadeo/ShootMania/ScoresTable.Script.txt" as ScoresTable
 #Include "Libs/Nadeo/ShootMania/SpawnScreen.Script.txt" as SpawnScreen
 
-#Include "Libs/Mewin/UserSettings.Script.txt" as UserSettings
+//#Include "Libs/Mewin/UserSettings.Script.txt" as UserSettings
 
 #Setting	RespawnTime					6001
 #Setting	TimeLimit					900000
@@ -117,7 +117,7 @@ Void _SpawnPlayer(CSmPlayer Player, Integer time)
 
 Text GetLayerSettings()
 {
-	return UserSettings::CreateLayerBindings(["Settings", "DomInfo", "DomMarker"], ["Bindings", "Toggle Info", "Toggle Markers"], <95., 40.>, 60);
+	return "";//UserSettings::CreateLayerBindings(["Settings", "DomInfo", "DomMarker"], ["Bindings", "Toggle Info", "Toggle Markers"], <95., 40.>, 60);
 }
 
 Text UpdateLayerMarkers(CSmBlockPole[] Poles)
@@ -145,9 +145,9 @@ Text UpdateLayerMarkers(CSmBlockPole[] Poles)
 	<script><!--
 		main()
 		{
-			declare persistent Integer[Text] KeyCodes for LocalUser;
-			declare persistent Text[Text] KeyNames for LocalUser;
-			declare persistent Dom_MarkersToggled for LocalUser = False;
+			declare Integer[Text] KeyCodes; //persis
+			declare Text[Text] KeyNames; //persis
+			declare Dom_MarkersToggled = False; //persis
 			declare CMlQuad[Ident] Quads;
 			declare MainFrame = (Page.GetFirstChild("frmMain") as CMlFrame);
 			
@@ -246,9 +246,9 @@ Text UpdateLayerRound(CSmBlockPole[] Poles)
 			
 			main()
 			{
-				declare persistent Integer[Text] KeyCodes for LocalUser;
-				declare persistent Text[Text] KeyNames for LocalUser;
-				declare persistent Dom_InfoToggled for LocalUser = False;
+				declare Integer[Text] KeyCodes; //persis
+				declare Text[Text] KeyNames; //persis
+				declare Dom_InfoToggled = False; //persis
 				
 				declare CMlGauge[Ident] Gauges;
 				declare CMlQuad[Ident] Quads;

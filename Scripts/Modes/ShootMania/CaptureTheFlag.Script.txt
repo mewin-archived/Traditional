@@ -19,7 +19,7 @@
 #Include "Libs/Nadeo/ShootMania/SpawnScreen.Script.txt" as SpawnScreen
 #Include "Libs/Nadeo/Interface.Script.txt" 				as Slider
 #Include "Libs/Mewin/ShootMania/StatusEffects.Script.txt" as StatusEffects
-#Include "Libs/Mewin/UserSettings.Script.txt" as UserSettings
+//#Include "Libs/Mewin/UserSettings.Script.txt" as UserSettings
 
 //#Include "Libs/Mewin/ShootMania/Radar.Script.txt" as Radar
 #Include "Libs/Mewin/ShootMania/Multikill.Script.txt" as Multikill
@@ -226,7 +226,7 @@ UIManager.UIAll.ScoreSummary_MatchPoints1 = 0;
 UIManager.UIAll.ScoreSummary_MatchPoints2 = 0;
 
 //Had to put this here, because .......... P0TatO!
-LayerSettings.ManialinkPage = UserSettings::CreateLayerBindings(["Settings", "DropFlag", "CtfMarker"], ["Bindings", "Drop Flag", "Toggle Markers"]);
+//LayerSettings.ManialinkPage = UserSettings::CreateLayerBindings(["Settings", "DropFlag", "CtfMarker"], ["Bindings", "Drop Flag", "Toggle Markers"]);
 ***
 
 ***MatchEnd***
@@ -862,8 +862,8 @@ Text GetMLEvents(CUser User)
 				#Include "TextLib" as TL
 				main()
 				{
-					declare persistent Integer[Text] KeyCodes for LocalUser;
-					declare persistent Text[Text] KeyNames for LocalUser;
+					declare Integer[Text] KeyCodes; //persis
+					declare Text[Text] KeyNames; //persis
 					declare netwrite DropFlag for UI = False;
 					declare netread HasFlag for UI = False;
 					declare LabelDrop <=> (Page.GetFirstChild("LabelDrop") as CMlLabel);
@@ -1093,8 +1093,8 @@ Text CreateMarkerLayer()
 	ML = """<script><!--
 		main()
 		{
-			declare persistent Integer[Text] KeyCodes for LocalUser;
-			declare persistent Text[Text] KeyNames for LocalUser;
+			declare Integer[Text] KeyCodes; //persis
+			declare Text[Text] KeyNames; //persis
 			
 			if (!KeyCodes.existskey("CtfMarker"))
 			{

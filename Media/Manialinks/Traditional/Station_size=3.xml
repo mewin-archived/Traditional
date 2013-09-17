@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <manialink version="1" background="stars">
 	<timeout>0</timeout>
-	<frame id="frmStart" posn="0 -34">
-		<quad halign="center" valign="top" sizen="100 30" image="file://Media/Manialinks/Common/StationInfo/StdButtonOff.dds" imagefocus="file://Media/Manialinks/Common/StationInfo/StdButtonOn.dds" id="quadStart" ScriptEvents="1" />
-		<label textcolor="9ef" style="TextButtonMedium" halign="center" id="lblStart" valign="center" posn="0 -14" textsize="10">Start</label>
+	<frame id="frmStart" posn="0 -50">
+		<quad halign="center" valign="top" sizen="140 50" image="file://Media/Manialinks/Common/StationInfo/StdButtonOff.dds" imagefocus="file://Media/Manialinks/Common/StationInfo/StdButtonOn.dds" id="quadStart" ScriptEvents="1" />
+		<label textcolor="9ef" style="TextButtonMedium" halign="center" id="lblStart" valign="center" posn="0 -23" textsize="12">Start</label>
 	</frame>
 	<script><!--
 		#Include "TextLib" as TextLib
@@ -12,7 +12,7 @@
 		declare MustUpdate = False;
 		
 		//NEWSTICKER
-		declare MaxLength = 69;
+		declare MaxLength = 67;
 		declare News = "";
 		declare LastAnimTick = Now;
 		declare DoAnim = False;
@@ -20,9 +20,9 @@
 		declare CurText = "";
 	--></script>
 	<include url="http://mewin.bplaced.net/version.php?news" />
-	<include url="file://Media/Manialinks/Traditional_Version.xml" />
-	<label scale="2" id="News" haling="left" valign="bottom" posn="-160 -60 2" style="StyleTextScriptEditor" text="" />
-	<script><!--	
+	<include url="file://Media/Manialinks/Traditional/Version.xml" />
+	<label scale="2.5" id="News" haling="left" valign="bottom" posn="-160 -90 2" style="StyleTextScriptEditor" text="" />
+	<script><!--
 		if (MustUpdate)
 		{
 			declare StartLabel = (Page.GetFirstChild("lblStart") as CMlLabel);

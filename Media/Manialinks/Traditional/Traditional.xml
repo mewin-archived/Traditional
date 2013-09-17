@@ -1,5 +1,11 @@
 <?xml version="0.1" encoding="utf-8" standalone="yes" ?>
 <manialink version="1" background="title">
+	<stylesheet>
+      <frame3dstyles id="lol">
+         <style3d id="StyleGreen" model="WindowH" thickness="1.05" yoffset="0" fyoffset="0" zoffset="0"   fzoffset="0.05" color="008800EE" fcolor="008800EE" lightcolor="001100" flightcolor="00EE00"/>
+	  </frame3dstyles>
+	</stylesheet>
+	<frame3d id="1" style3d="StyleGreen" sizen="50 100" posn="0 100" ScriptEvents="1"><label>hi</label></frame3d>
 	<label scale="0.7" posn="-160 -90" halign="left" valign="bottom">$h[mewinsml]Mewins ML$h</label>
 	<frame id="menu" posn="-150 90 -20">
 		<quad bgcolor="f00" id="menu" posn="0 0 -10" sizen="80 180" image="file://Media/Images/Traditional_MenuBar.png" />

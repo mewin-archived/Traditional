@@ -5,7 +5,7 @@
 		<label style="TextRaceMessageBig" posn="0 0" halign="center" valign="top" text="Click to update" />
 	</frame>
 	<script><!--
-		if (Version > 20020000)
+		if (Version > 20020001)
 		{
 			MustUpdate = True;
 		}

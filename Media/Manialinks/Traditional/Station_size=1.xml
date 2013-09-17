@@ -10,7 +10,7 @@
 		declare MustUpdate = False;
 	--></script>
 	<include url="http://mewin.bplaced.net/version.php" />
-	<include url="file://Media/Manialinks/Traditional_Version.xml" />
+	<include url="file://Media/Manialinks/Traditional/Version.xml" />
 	<script><!--	
 		if (MustUpdate)
 		{
