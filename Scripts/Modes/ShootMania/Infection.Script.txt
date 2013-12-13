@@ -21,7 +21,7 @@
 #Setting S_ScoreLimit					100			as "score limit"
 #Setting S_RoundLimit					20			as "round limit"
 //Rules
-#Setting S_RespawnOnInfection			False		as "respawn on infection"
+#Const	 S_RespawnOnInfection			True		//as "respawn on infection"
 #Setting S_FirstInfectedShoot			True		as "allow first infected to shoot"
 #Setting S_InfectionTime				10000		as "time till first infection"
 #Setting S_HitSurvivors					False		as "allow hitting survivors"
@@ -30,7 +30,7 @@
 #Setting S_MinPlayers					2			as "minimum players"
 
 #Const	CompatibleMapTypes	"MeleeArena"
-#Const	Version				"2013-08-28"
+#Const	Version				"2013-11-29"
 
 #Const C_Survivor				"$f00Survivor"
 #Const C_Infected				"$0f0Infected"
@@ -41,6 +41,7 @@
 #Const C_InfectedColor			<0., 1., 0.>
 #Const C_RoundPauseTime			6000
 #Const C_MatchPauseTime			10000
+#Const C_DbgBots				0
 //#Const C_InfectedSkin			"file://Skins/Models/ArenaPlayer/Zombie.zip"
 
 #Const C_ImgBaseDir				"file://Media/Manialinks/Shootmania/Common/"
@@ -165,11 +166,14 @@ foreach (Player in AllPlayers)
 	UpdateScoresTable(Player);
 }
 
-for (I, 0, 5)
+if (C_DbgBots > 0)
 {
-	declare Bot = CreateBotPlayer(NullId, 0, 200, FindSpawn(0), Now + 1000);
-	declare Boolean Spawned for Bot;
-	Spawned = True;
+	for (I, 1, C_DbgBots)
+	{
+		declare Bot = CreateBotPlayer(NullId, 0, 200, FindSpawn(0), Now + 1000);
+		declare Boolean Spawned for Bot;
+		Spawned = True;
+}
 }
 
 if (PlayerCount() < S_MinPlayers)
@@ -778,6 +782,10 @@ Void Infect(CSmPlayer Player)
 	
 	Infected = True;
 	Player.ForceColor = C_InfectedColor;
+	if (S_RespawnOnInfection)
+	{
+		UnspawnPlayer(Player);
+	}
 	SetPlayerWeapon(Player, CSmMode::EWeapon::Rocket, False);
 	if (InfectedCount() <= 1 && S_FirstInfectedShoot)
 	{

@@ -16,6 +16,7 @@
 
 declare Ident[Integer] PickupItems;
 declare Integer ItemRespawnTime;
+declare Integer ArmorMax;
 declare Integer ArmorGainMax;
 declare Integer DoubleDamageTime;
 declare Boolean AllWeapons;
@@ -220,6 +221,16 @@ Void SetArmorGainMax(Integer Max)
 Integer GetArmorGainMax()
 {
 	return ArmorGainMax;
+}
+
+Void SetArmorMax(Integer Max)
+{
+	ArmorMax = Max;
+}
+
+Integer GetArmorMax()
+{
+	return ArmorMax;
 }
 
 Void SetDoubleDamageTime(Integer Time)
@@ -479,6 +490,7 @@ Void OnPlayerSpawn(CSmPlayer Player, CSmMode::EWeapon DefaultWeapon, Integer Max
 	{
 		Player.ArmorMax = ArmorMax;
 	}
+	
 	if (Gain > 0.)
 	{
 		Player.AmmoGain = Gain;
@@ -881,6 +893,21 @@ Void OnShoot(CSmPlayer Player)
 	}
 }
 
+Void Loop()
+{
+	foreach (Player in Players)
+	{
+		if (Player.Armor <= ArmorGainMax && Player.ArmorMax > ArmorMax)
+		{
+			Player.ArmorMax = Player.Armor;
+			if (Player.ArmorMax < ArmorMax)
+			{
+				Player.ArmorMax = ArmorMax;
+			}
+		}
+	}
+}
+
 Text GetML(CSmPlayer Player)
 {
 	declare ML = """<frame posn="0 -50">""";
@@ -906,13 +933,14 @@ Text GetML(CSmPlayer Player)
 			case 4:
 				HasWeapon = HasWeaponArrow;
 		}
-		if (Weapon != CurrentWeapon)
+		//if (Weapon != CurrentWeapon)
+		if (!HasWeapon)
 		{
 			ML ^= WeaponNames[Weapon];
-			if (HasWeapon)
+			/*if (HasWeapon)
 			{
 				ML ^= "White";
-			}
+			}*/
 		}
 		else
 		{
@@ -928,10 +956,35 @@ Text GetML(CSmPlayer Player)
 					ML ^= "WpArrows";
 			}
 		}
-		ML ^= ".dds\"";
-		ML ^= """ sizen="10 10" />""";
-		ML ^= """<label posn="{{{-25 + Weapon * 10}}} -10" halign="center" valign="top">""";
+		declare Color = <.1, .1, .1>;
+		declare Ammo = GetAmmo(Player, Weapon);
 		if (Weapon == CurrentWeapon)
+		{
+			Color = <0., 0.8, 0.>;
+		}
+		else if (HasWeapon)
+		{
+			if (!LimitAmmo || Ammo < 0)
+			{
+				Color = <1., 1., 1.>;
+			}
+			else if (Ammo == 0)
+			{
+				Color = <1., 0., 0.>;
+			}
+			else if (Ammo < GetAmmoPerPickup(Weapon) / 2.)
+			{
+				Color = <1., 0.5, 0.>;
+			}
+			else
+			{
+				Color = <1., 1., 1.>;
+			}
+		}
+		ML ^= ".dds\"";
+		ML ^= """ modulatecolor="0f0" colorize="{{{TextLib::ColorToText(Color)}}}" sizen="10 10" />""";
+		ML ^= """<label posn="{{{-25 + Weapon * 10}}} -10" halign="center" valign="top">""";
+		/*if (Weapon == CurrentWeapon)
 		{
 			ML ^= "$0d0";
 		}
@@ -949,7 +1002,8 @@ Text GetML(CSmPlayer Player)
 		else
 		{
 			ML ^= "$000";
-		}
+		}*/
+		ML ^= """${{{TextLib::ColorToText(Color)}}}""";
 		ML ^= """{{{Weapon}}}</label>""";
 		if (LimitAmmo && HasWeapon)
 		{

@@ -1,0 +1,91 @@
+#RequireContext CSmMode
+
+#Include "Libs/Nadeo/ShootMania/Score.Script.txt" as Score
+#Include "Libs/Nadeo/Mode.Script.txt" as Mode
+#Include "Libs/Nadeo/Top.Script.txt" as Top
+#Include "Libs/Nadeo/ShootMania/SM.Script.txt" as SM
+
+#Const	CompatibleMapTypes	"RoyalArena"
+#Const	Version				"2012-07-17"
+
+#Setting S_MapPointsLimit 	20	as _("Points to win a map")
+#Setting S_HitScore			1   as _("Score per hit")
+#Setting S_KillScore		2   as _("Score per kill")
+#Setting S_SelfKillScore	-1  as _("Score per selfkill")
+
+
+main() {
+	UseClans = False;
+	
+	declare LayerScoresTable <=> UIManager.UILayerCreate();
+	LayerScoresTable.Type = CUILayer::EUILayerType::ScoresTable;
+	
+	while (!ServerShutdownRequested) {
+		Mode::LoadMap();
+		Score::MatchBegin();
+		Top::MatchBegin();
+	
+		declare MapWinnerId = NullId;
+		MatchEndRequested = False;
+	
+		UIManager.UIAll.UISequence = CUIConfig::EUISequence::Intro;
+		UIManager.UIAll.BigMessage = _("New match");
+		UIManager.UIAll.StatusMessage = _("Point limit")^": "^S_MapPointsLimit;
+		wait(UIManager.UIAll.UISequenceIsCompleted);
+		UIManager.UIAll.BigMessage = "";
+		UIManager.UIAll.StatusMessage = "";
+		
+		while (!MatchEndRequested && !ServerShutdownRequested) {
+			UIManager.ResetAll();		
+			SM::SetupDefaultVisibility();
+			UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;	
+			Score::RoundBegin();
+		}
+		
+		foreach (Player in Players) {
+				declare Integer RoundHits for Player;
+				RoundHits = 0;
+				if (Player.Score != Null) Player.Score.RoundPoints = 1;
+		}
+		
+		UIManager.UIAll.UILayers.clear();
+		
+		
+		declare RoundEndRequested = False;
+		declare RoundWinnerId = NullId;
+		
+		while (!RoundEndRequested && !MatchEndRequested && !ServerShutdownRequested) {
+			yield;
+			
+			foreach(Player in Players) {
+				if (Player.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned) continue;							
+				SM::SpawnPlayer(Player, Player.RequestedClan, ClanSpawnAnchors[Player.RequestedClan], Now + RespawnTime);							
+			}
+			
+			foreach (Event in PendingEvents) {
+				//Ereignisse bearbeiten
+				if (Event.Type == CSmModeEvent::EType::OnArmorEmpty) {
+					if ( (Event.Shooter == Event.Victim && Event.Shooter != Null) || (Event.Shooter == Null)) {
+						Score::AddPoints( Event.Victim, S_SelfKillScore);
+					} else if (Event.Victim != Null)
+					{
+						Score::AddPoints( Event.Shooter, S_KillScore);
+					}
+					
+					PassOn(Event);
+				} else if (Event.Type == CSmModeEvent::EType::OnHit)
+				{
+					if (Event.Victim != Null && Event.Shooter != Null && Event.Victim != Event.Shooter && Event.Damage > 0) {
+						Score::AddPoints( Event.Shooter, S_HitScore);
+					}
+					else
+					{
+						Discard(Event);
+					}
+				} else {
+					PassOn(Event);
+				}
+			}
+		}
+	}
+}

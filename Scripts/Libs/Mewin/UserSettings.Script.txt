@@ -1,0 +1,133 @@
+Text CreateLayerBindings(Text[] Bindings, Text[] Descriptions, Vec2 Location, Integer Width)
+{
+	declare ML = """<frame id="frmMain" posn="{{{Location.X}}} {{{Location.Y}}}" hidden="1">
+			<quad sizen="{{{Width}}} {{{17 + Bindings.count * 5}}}" bgcolor="fff9" />
+			<label textcolor="f009" posn="{{{Width / 2}}} 2" style="TextTitle1" halign="center">Keys</label>
+			<label posn="{{{Width / 2}}} -4" style="TextInfoSmall" halign="center">Hold ALT to use your mouse.</label>
+			<label posn="{{{Width / 2}}} -{{{12 + Bindings.count * 5}}}" style="TextInfoSmall" halign="center">Press bindings key to close this.</label>""";
+			for (I, 0, Bindings.count - 1)
+			{
+				ML ^= """<label textcolor="000" posn="2 -{{{10 + I * 5}}}">{{{Descriptions[I]}}}:</label>
+						 <label textcolor="000" posn="{{{Width - 2}}} -{{{10 + I * 5}}}" halign="right" id="{{{Bindings[I]}}}" ScriptEvents="1" />""";
+			}
+		ML ^= """</frame>
+		<label textsize="2" posn="158 88" halign="right" valign="top" id="hint" textcolor="f00" />
+		<script><!--
+			declare Integer RB_Key;
+			declare Text RB_Name;
+			Void RebindKey()
+			{
+				declare NewKey = -1;
+				declare NewKeyName = "";
+				while (NewKey < 0)
+				{
+					yield;
+					foreach (Event, PendingEvents)
+					{
+						if (Event.Type == CMlEvent::Type::KeyPress)
+						{
+							NewKey = Event.KeyCode;
+							NewKeyName = Event.KeyName;
+						}
+					}
+				}
+				RB_Key = NewKey;
+				RB_Name = NewKeyName;
+			}
+		
+			main()
+			{
+				declare persistent KeyCodes for LocalUser = Integer[Text];
+				declare persistent KeyNames for LocalUser = Text[Text];
+				declare persistent ShowKeyHint for LocalUser = True;
+				declare Hint = (Page.GetFirstChild("hint") as CMlLabel);
+				declare StartTime = Now;
+				
+				if (!KeyCodes.existskey("Settings") || KeyCodes["Settings"] < 0)
+				{
+					KeyCodes["Settings"] = 43;
+					KeyNames["Settings"] = "F7";
+				}
+				
+				if (ShowKeyHint)
+				{
+					Hint.Value = "Press " ^ KeyNames["Settings"] ^ " to edit key bindings.";
+				}
+				sleep(500); //let other scripts init there keys ;)
+				declare MainFrame = (Page.GetFirstChild("frmMain") as CMlFrame);
+				
+				foreach (Control in MainFrame.Controls)
+				{
+					if (Control.ControlId != "" && (Control is CMlLabel))
+					{
+						declare Label = (Control as CMlLabel);
+						if (KeyNames.existskey(Label.ControlId))
+						{
+							Label.Value = KeyNames[Label.ControlId];
+						}
+						else
+						{
+							Label.Value = "<???>";
+						}
+					}
+				}
+				
+				while (True)
+				{
+					foreach (Event, PendingEvents)
+					{
+						if (Event.Type == CMlEvent::Type::KeyPress)
+						{
+							if (Event.KeyCode == KeyCodes["Settings"])
+							{
+								MainFrame.Visible = !MainFrame.Visible;
+								Hint.Hide();
+								ShowKeyHint = False;
+							}
+						}
+						else if (Event.Type == CMlEvent::Type::MouseClick)
+						{
+							declare ClickedControl = Page.GetFirstChild(Event.ControlId);
+							
+							if (ClickedControl is CMlLabel)
+							{
+								declare Label = (ClickedControl as CMlLabel);
+								declare CId = Event.ControlId;
+								
+								Label.Value = "$f00" ^ Label.Value;
+								KeyCodes[CId] = -1;
+								RebindKey();
+								sleep(50);
+								KeyCodes[CId] = RB_Key;
+								KeyNames[CId] = RB_Name;
+								Label.Value = RB_Name;
+								
+								foreach (Name => KeyCode in KeyCodes)
+								{
+									if (KeyCode == RB_Key && Name != CId)
+									{
+										
+										declare ConfLabel = (Page.GetFirstChild(Name) as CMlLabel);
+										
+										if (ConfLabel != Null && MainFrame.Controls.exists(ConfLabel))
+										{
+											KeyCodes[Name] = -1;
+											KeyNames[Name] = "<???>";
+											ConfLabel.Value = "<???>";
+										}
+									}
+								}
+							}
+						}
+					}
+					yield;
+				}
+			}
+		--></script>""";
+		return ML;
+}
+
+Text CreateLayerBindings(Text[] Bindings, Text[] Descriptions)
+{
+	return CreateLayerBindings(Bindings, Descriptions, <50., 80.>, 100);
+}

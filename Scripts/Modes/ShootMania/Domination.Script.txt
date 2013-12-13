@@ -214,7 +214,7 @@ Text UpdateLayerRound(CSmBlockPole[] Poles)
 		{
 			NoNameCounter += 1;
 			ML ^= """<gauge posn="-145 {{{Pos}}}" sizen="50 10" id="pole_{{{Pole.Id}}}" />
-					<label posn="-145 {{{Pos - 4}}}" textsize="1">Goal #{{{NoNameCounter}}}</label>""";
+					<label posn="-120 {{{Pos - 4}}}" textsize="1" halign="center">Goal #{{{NoNameCounter}}}</label>""";
 		}
 		else
 		{
@@ -291,6 +291,11 @@ Text UpdateLayerRound(CSmBlockPole[] Poles)
 				
 				while (True)
 				{
+					if (InputPlayer == Null)
+					{
+						yield;
+						continue;
+					}
 					declare netread _DomRatios for InputPlayer = [1 => 0., 2 => 0.];
 					declare Totals = [ 1 => 0, 2 => 0 ];
 					foreach (Id => Gauge in Gauges)

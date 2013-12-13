@@ -3,21 +3,66 @@
 	<timeout>0</timeout>
 	<frame id="frmStart" posn="0 -12">
 		<quad halign="center" valign="top" sizen="70 20" image="file://Media/Manialinks/Common/StationInfo/StdButtonOff.dds" imagefocus="file://Media/Manialinks/Common/StationInfo/StdButtonOn.dds" id="quadStart" ScriptEvents="1" />
-		<label textcolor="9ef" style="TextButtonMedium" halign="center" id="lblStart" valign="center" posn="0 -11" textsize="7">Start</label>
+		<label textcolor="9ef" style="TextButtonMedium" halign="center" id="lblStart" valign="center" posn="0 -11" textsize="7">Loading...</label>
 	</frame>
 	<script><!--
 		declare Version = -1;
 		declare MustUpdate = False;
+		declare Timeout = 3000;
+		
+		declare Req = Http.CreateGet("http://vc.mewin.de/traditional/get.php?get=version");
+		
+		declare ReqStart = Now;
+		while (Now < ReqStart + Timeout)
+		{
+			if (Req.IsCompleted)
+			{
+				if (Req.StatusCode == 200)
+				{
+					declare Doc = Xml.Create(Req.Result);
+					
+					Version = Doc.GetFirstChild("data").GetAttributeInteger("value", -1);
+				}
+				break;
+			}
+			yield;
+		}
+		
+		Http.Destroy(Req);
+		
+		Req = Http.CreateGet("http://vc.mewin.de/traditional/get.php?get=news");
+		
+		ReqStart = Now;
+		while (Now < ReqStart + Timeout)
+		{
+			if (Req.IsCompleted)
+			{
+				if (Req.StatusCode == 200)
+				{
+					declare Doc = Xml.Create(Req.Result);
+					
+					News = Doc.GetFirstChild("data").GetAttributeText("value", "");
+				}
+				break;
+			}
+			yield;
+		}
+		
+		Http.Destroy(Req);
 	--></script>
-	<include url="http://mewin.bplaced.net/version.php" />
 	<include url="file://Media/Manialinks/Traditional/Version.xml" />
-	<script><!--	
+	<script><!--
+		declare StartLabel = (Page.GetFirstChild("lblStart") as CMlLabel);
 		if (MustUpdate)
 		{
-			declare StartLabel = (Page.GetFirstChild("lblStart") as CMlLabel);
 			
 			StartLabel.Value ="Update";
 		}
+		else
+		{
+			StartLabel.Value = "Start";
+		}
+		
 		while (True)
 		{
 			yield;

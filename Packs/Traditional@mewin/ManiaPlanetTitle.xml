@@ -3,19 +3,19 @@
 	<id>Traditional@mewin</id>
 	<name>Traditional</name>
 	<desc>Includes some traditional shooter game modes like Capture the Flag and Domination.</desc>
-	<url>mewinsml</url>
+	<url>traditional</url>
 	<base>SMStorm</base>
 	<packaging>
 		<image name="PackImage.jpg" />
 		<logos name="Logos-2.png" />
 		<collection></collection>
 		<sortindex>100</sortindex>
-		<station_manialink url="file://Media/Manialinks/Traditional_Station.xml" />
+		<station_manialink url="file://Media/Manialinks/Traditional/Station.xml" />
 		<boxcase_manialink url="" />
 	</packaging>
 	<menu>
 		<background_image name="MenuBg.jpg" />
-		<background_replay name="Replays\[CTF] Center Park_Bg.Replay.Gbx" />
+		<background_replay name="" />
 		<header name="MenuHeader.png" />
 		<music name="" />
 		<manialink url="" />
@@ -29,7 +29,7 @@
 	<solo>
 		<medals>0</medals>
 		<!-- either campaign or playlist-->
-		<mode name="Modes\ShootMania\CaptureTheFlag.Script.txt" />
+		<mode name="" />
 		<campaign folder="" />
 		<playlist name="" />
 	</solo>
@@ -42,29 +42,30 @@
 		<playlist name="" />
 	</splitscreen>
 	<files>
-		<file name="Scripts\Modes\ShootMania\CaptureTheFlag.Script.txt" public="false" internal="false" />
+		<file name="Items\DoubleDamage.Item.gbx" public="false" internal="false" />
+		<file name="Maps\MatchSettings\Traditional-CTF.txt" public="false" internal="false" />
+		<file name="Scripts\Libs\Multilingual.Script.txt" public="false" internal="false" />
 		<file name="Scripts\MapTypes\ShootMania\CTFArena.Script.txt" public="false" internal="false" />
+		<file name="Scripts\MapTypes\ShootMania\DominationArena.Script.txt" public="false" internal="false" />
+		<file name="Scripts\Modes\ShootMania\CaptureTheFlag.Script.txt" public="false" internal="false" />
+		<file name="Scripts\Modes\ShootMania\DeathMatch.Script.txt" public="false" internal="false" />
 		<file name="Scripts\Modes\ShootMania\Domination.Script.txt" public="false" internal="false" />
 		<file name="Scripts\Modes\ShootMania\Infection.Script.txt" public="false" internal="false" />
-		<file name="Scripts\Modes\ShootMania\TeamDeathMatch.Script.txt" public="false" internal="false" />
 		<file name="Scripts\Modes\ShootMania\SnD.Script.txt" public="false" internal="false" />
-		<file name="Items\DoubleDamage.Item.gbx" public="false" internal="false" />
-		<file name="Items\Meshes\DoubleDamage.Mesh.gbx" public="false" internal="false" />
-		<file name="Items\Meshes\Texture\DoubleDamage_D.dds" public="false" internal="false" />
-		<file name="Items\Meshes\Texture\DoubleDamage_I.dds" public="false" internal="false" />
-		<file name="Items\Meshes\Texture\DoubleDamage_N.dds" public="false" internal="false" />
-		<file name="Items\Meshes\Texture\DoubleDamage_S.dds" public="false" internal="false" />
-		<file name="Scripts\MapTypes\ShootMania\DominationArena.Script.txt" public="false" internal="false" />
-		<file name="Scripts\MapTypes\ShootMania\SnDArena.Script.txt" public="false" internal="false" />
-		<file name="Maps\MatchSettings\Traditional-CTF.txt" public="false" internal="false" />
+		<file name="Scripts\Modes\ShootMania\TeamDeathMatch.Script.txt" public="false" internal="false" />
+		<file name="Scripts\Modes\ShootMania\Tournament-CTF.Script.txt" public="false" internal="false" />
 	</files>
 	<folders>
+		<folder name="Items\Bomb" public="false" internal="false" />
 		<folder name="Items\CTF" public="false" internal="false" />
+		<folder name="Items\Meshes" public="false" internal="false" />
 		<folder name="Items\SMCommon" public="false" internal="false" />
-		<folder name="Media\Translations\CTF" public="false" internal="false" />
-		<folder name="Media\Translations\Multikill" public="false" internal="false" />
 		<folder name="Maps\Traditional" public="false" internal="false" />
+		<folder name="Media\Images\Traditional" public="false" internal="false" />
+		<folder name="Media\Manialinks\Traditional" public="true" internal="false" />
 		<folder name="Media\Sounds" public="false" internal="false" />
+		<folder name="Media\Translations" public="false" internal="false" />
+		<folder name="Scripts\Libs\Mewin" public="false" internal="false" />
 	</folders>
 	<mod name="" />
 	<title_version></title_version>

@@ -3,7 +3,7 @@
 	<timeout>0</timeout>
 	<frame id="frmStart" posn="0 -50">
 		<quad halign="center" valign="top" sizen="140 50" image="file://Media/Manialinks/Common/StationInfo/StdButtonOff.dds" imagefocus="file://Media/Manialinks/Common/StationInfo/StdButtonOn.dds" id="quadStart" ScriptEvents="1" />
-		<label textcolor="9ef" style="TextButtonMedium" halign="center" id="lblStart" valign="center" posn="0 -23" textsize="12">Start</label>
+		<label textcolor="9ef" style="TextButtonMedium" halign="center" id="lblStart" valign="center" posn="0 -23" textsize="12">Loading...</label>
 	</frame>
 	<script><!--
 		#Include "TextLib" as TextLib
@@ -18,16 +18,60 @@
 		declare DoAnim = False;
 		declare Pos = 0;
 		declare CurText = "";
+		declare Timeout = 3000;
+		
+		declare Req = Http.CreateGet("http://vc.mewin.de/traditional/get.php?get=version");
+		
+		declare ReqStart = Now;
+		while (Now < ReqStart + Timeout)
+		{
+			if (Req.IsCompleted)
+			{
+				if (Req.StatusCode == 200)
+				{
+					declare Doc = Xml.Create(Req.Result);
+					
+					Version = Doc.GetFirstChild("data").GetAttributeInteger("value", -1);
+				}
+				break;
+			}
+			yield;
+		}
+		
+		Http.Destroy(Req);
+		
+		Req = Http.CreateGet("http://vc.mewin.de/traditional/get.php?get=news");
+		
+		ReqStart = Now;
+		while (Now < ReqStart + Timeout)
+		{
+			if (Req.IsCompleted)
+			{
+				if (Req.StatusCode == 200)
+				{
+					declare Doc = Xml.Create(Req.Result);
+					
+					News = Doc.GetFirstChild("data").GetAttributeText("value", "");
+				}
+				break;
+			}
+			yield;
+		}
+		
+		Http.Destroy(Req);
 	--></script>
-	<include url="http://mewin.bplaced.net/version.php?news" />
 	<include url="file://Media/Manialinks/Traditional/Version.xml" />
 	<label scale="2.5" id="News" haling="left" valign="bottom" posn="-160 -90 2" style="StyleTextScriptEditor" text="" />
 	<script><!--
+		declare StartLabel = (Page.GetFirstChild("lblStart") as CMlLabel);
 		if (MustUpdate)
 		{
-			declare StartLabel = (Page.GetFirstChild("lblStart") as CMlLabel);
 			
 			StartLabel.Value ="Update";
+		}
+		else
+		{
+			StartLabel.Value = "Start";
 		}
 		
 		declare NewsLbl = (Page.GetFirstChild("News") as CMlLabel);

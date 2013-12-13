@@ -1,0 +1,72 @@
+#Include "TextLib" as TextLib
+
+#Const	SCRIPT_URL				"http://mewin.bplaced.net/serverlist.php"
+#Const	KEEP_ALIVE_DELAY		30000
+
+declare Integer LatestKeepAlive;
+
+Integer DoRequest(Text Data)
+{
+	declare Req = Http.CreatePost(SCRIPT_URL, Data);
+	
+	wait (Req.IsCompleted);
+	declare SC = Req.StatusCode;
+	//log (Req.Result);
+	Http.Destroy(Req);
+	return SC;
+}
+
+Void RegisterServer(Text AddInfo)
+{
+	declare StatusCode = DoRequest("""action=register&login={{{TextLib::URLEncode(ServerLogin)}}}&name={{{TextLib::URLEncode(ServerName)}}}&mode={{{TextLib::URLEncode(ServerModeName)}}}{{{AddInfo}}}""");
+	
+	if (StatusCode >= 300) //2xx is success
+	{
+		log ("Error while registering server!");
+		log ("HTTP-Status: " ^ StatusCode);
+	}
+	else
+	{
+		log ("Server successfully registered.");
+	}
+}
+
+Void SendUpdate(Text Info)
+{
+	declare StatusCode = DoRequest("""action=update&{{{Info}}}""");
+	
+	if (StatusCode >= 300)
+	{
+		log ("Error while updating server!");
+		log ("HTTP-Status: " ^ StatusCode);
+	}
+	else
+	{
+		log ("Server successfully updated.");
+	}
+}
+
+Void UpdateRoundInfo(Text AddInfo)
+{
+	SendUpdate("""login={{{ServerLogin}}}&map={{{MapName}}}&EndTime={{{EndTime}}}{{{AddInfo}}}""");
+}
+
+Void SendKeepAlive()
+{
+	declare StatusCode = DoRequest("""action=keep_alive&login={{{ServerLogin}}}""");
+	
+	if (StatusCode >= 300)
+	{
+		log ("Error while sending keep alive!");
+		log ("HTTP-Status: " ^ StatusCode);
+	}
+}
+
+Void Loop()
+{
+	if (LatestKeepAlive + KEEP_ALIVE_DELAY < Now)
+	{
+		LatestKeepAlive = Now;
+		SendKeepAlive();
+	}
+}

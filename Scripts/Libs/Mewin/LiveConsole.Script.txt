@@ -1,0 +1,51 @@
+Text GetConsoleML()
+{
+	declare ML = """<frame posn="0 0"><quad valign="center" halign="center" sizen="16 16" /><label>Test</label></frame>""";
+	
+	
+	
+	return ML;
+}
+
+Integer GetOutstandingCommands(CPlayer Player)
+{
+	declare UI = UIManager.GetUI(Player);
+	declare netread CmdNum for UI = 0;
+	
+	return CmdNum;
+}
+
+Text GetNextCommand(CPlayer Player)
+{
+	declare UI = UIManager.GetUI(Player);
+	declare netread NextCmd for UI = "";
+	declare netwrite Integer CmdRead for UI;
+	declare ReadTime = Now;
+	declare ReadFinished = False;
+	
+	CmdRead = ReadTime;
+	sleep(10);
+	while (!ReadFinished)
+	{
+		declare netread OkTime for UI = 0;
+		if (OkTime == ReadTime)
+		{
+			ReadFinished = True;
+		}
+		yield;
+	}
+	
+	return NextCmd;
+}
+
+Void AddForPlayer(CPlayer Player)
+{
+	declare UI = UIManager.GetUI(Player);
+	declare Layer = UIManager.UILayerCreate();
+	
+	if (UI != Null)
+	{
+		Layer.ManialinkPage = GetConsoleML();
+		UI.UILayers.add(Layer);
+	}
+}
